@@ -1,0 +1,54 @@
+:host {
+  --sidebar-width: 246px;
+  display: block;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, var(--color-sidebar) 0 var(--sidebar-width), transparent var(--sidebar-width)),
+    radial-gradient(circle at top right, rgba(189, 132, 41, 0.18), transparent 360px),
+    var(--color-page);
+}
+
+app-sidebar,
+app-topbar,
+.workspace,
+.content {
+  min-width: 0;
+}
+
+.workspace {
+  min-width: 0;
+  max-width: 100vw;
+}
+
+.content {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+@media (max-width: 1440px) {
+  :host {
+    --sidebar-width: 220px;
+  }
+
+  .content {
+    padding: 18px;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    background: var(--color-page);
+    overflow-x: hidden;
+  }
+
+  .content {
+    padding: 16px;
+  }
+}

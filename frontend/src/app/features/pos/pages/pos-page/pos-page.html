@@ -1,0 +1,411 @@
+<div class="pos-shell">
+  <header class="pos-topbar">
+    <div class="pos-brand">
+      <span class="pos-brand-icon">☕</span>
+      <div>
+        <strong>Cafedronel POS</strong>
+        <span>Punto de venta · inventario en tiempo real</span>
+      </div>
+    </div>
+
+    <div class="pos-caja-bar">
+      @if (cajaLoading()) {
+        <div class="caja-status loading">Consultando caja...</div>
+      } @else if (cajaAbierta()) {
+        @if (cajaSesion(); as sesion) {
+        <div class="caja-status open">
+          <span class="caja-dot"></span>
+          <div>
+            <strong>Caja abierta</strong>
+            <span>
+              Fondo {{ formatMoney(sesion.montoInicial) }} · Ventas {{ formatMoney(sesion.totalVentas) }} · Efectivo en
+              caja {{ formatMoney(sesion.efectivoEnCaja) }}
+            </span>
+          </div>
+        </div>
+        }
+      } @else {
+        <div class="caja-status closed">
+          <span class="caja-dot"></span>
+          <div>
+            <strong>Caja cerrada</strong>
+            <span>Abre con el monto inicial del turno</span>
+          </div>
+        </div>
+      }
+
+      <div class="caja-actions">
+        @if (!cajaAbierta()) {
+          <button type="button" class="caja-btn primary" (click)="openAperturaPanel()">Abrir caja</button>
+        } @else {
+          <button type="button" class="caja-btn" (click)="toggleCajaMenu()">Caja ▾</button>
+          @if (cajaPanel() === 'menu') {
+            <div class="caja-menu">
+              <button type="button" (click)="openCierrePanel()">Cerrar caja</button>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+    <div class="pos-meta">
+      <div class="pos-meta-block">
+        <span class="pos-meta-label">Cajero</span>
+        <strong>{{ cajeroLabel() }}</strong>
+        <small>{{ cajeroRole() }}</small>
+      </div>
+      <div class="pos-meta-block pos-clock">
+        <span class="pos-meta-label">Hora</span>
+        <strong>{{ nowLabel() }}</strong>
+      </div>
+    </div>
+  </header>
+
+  @if (successMessage()) {
+    <div class="pos-toast success" role="status">{{ successMessage() }}</div>
+  }
+
+  @if (errorMessage()) {
+    <div class="pos-toast error" role="alert">{{ errorMessage() }}</div>
+  }
+
+  @if (!cajaLoading() && !cajaAbierta()) {
+    <div class="pos-lock-banner">
+      Debes abrir caja con un monto inicial para empezar a vender.
+      <button type="button" class="caja-btn primary" (click)="openAperturaPanel()">Abrir caja ahora</button>
+    </div>
+  }
+
+  <div class="pos-body" [class.pos-locked]="!cajaAbierta()">
+    <section class="pos-catalog">
+      <div class="catalog-toolbar">
+        <div class="pos-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M10.5 3a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15Zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Zm8.03 13.47-3.8-3.8 1.41-1.42 3.8 3.81-1.41 1.41Z"
+            />
+          </svg>
+          <input
+            type="search"
+            placeholder="Buscar producto, SKU o codigo..."
+            (input)="updateSearch($event)"
+          />
+        </div>
+
+        <nav class="pos-categories" aria-label="Categorias">
+          @for (chip of categoryChips(); track chip.value) {
+            <button
+              type="button"
+              class="category-chip"
+              [class.active]="selectedCategory() === chip.value"
+              (click)="selectCategory(chip.value)"
+            >
+              <span class="chip-icon">{{ chip.icon }}</span>
+              <span>{{ chip.label }}</span>
+            </button>
+          }
+        </nav>
+      </div>
+
+      @if (loading()) {
+        <div class="pos-state">
+          <div class="pos-spinner"></div>
+          <p>Cargando catalogo...</p>
+        </div>
+      } @else if (!filteredProducts().length) {
+        <div class="pos-state">
+          <p>No hay productos para esta busqueda.</p>
+        </div>
+      } @else {
+        <div class="product-grid">
+          @for (product of filteredProducts(); track product.id) {
+            <button type="button" class="product-card" (click)="addToCart(product)">
+              <div class="product-media">
+                <img
+                  [src]="productImageUrl(product.imagenUrl)"
+                  [alt]="product.nombre"
+                  loading="lazy"
+                  (error)="onProductImageError($event)"
+                />
+                @if (cartQty(product.id) > 0) {
+                  <span class="product-badge">{{ cartQty(product.id) }}</span>
+                }
+              </div>
+              <div class="product-body">
+                <span class="product-category">{{ product.categoria }}</span>
+                <strong class="product-name">{{ product.nombre }}</strong>
+                <div class="product-footer">
+                  <span class="product-price">{{ formatMoney(product.precio) }}</span>
+                  <span class="product-add">+</span>
+                </div>
+              </div>
+            </button>
+          }
+        </div>
+      }
+    </section>
+
+    <aside class="pos-ticket">
+      <header class="ticket-header">
+        <div>
+          <span class="ticket-eyebrow">Orden actual</span>
+          <h2>Ticket de venta</h2>
+        </div>
+        <div class="ticket-count">{{ cartCount() }}</div>
+      </header>
+
+      <div class="ticket-lines">
+        @for (item of cart(); track item.productoId) {
+          <article class="ticket-line">
+            <img
+              class="ticket-thumb"
+              [src]="productImageUrl(item.imagenUrl)"
+              [alt]="item.nombre"
+              loading="lazy"
+              (error)="onProductImageError($event)"
+            />
+            <div class="ticket-line-info">
+              <strong>{{ item.nombre }}</strong>
+              <span>{{ formatMoney(item.precio) }} c/u</span>
+            </div>
+            <div class="ticket-qty">
+              <button type="button" aria-label="Quitar uno" (click)="decrement(item)">−</button>
+              <span>{{ item.cantidad }}</span>
+              <button type="button" aria-label="Agregar uno" (click)="increment(item)">+</button>
+            </div>
+            <div class="ticket-line-total">{{ formatMoney(item.precio * item.cantidad) }}</div>
+            <button type="button" class="ticket-remove" aria-label="Eliminar" (click)="removeItem(item)">×</button>
+          </article>
+        } @empty {
+          <div class="ticket-empty">
+            <span>🛒</span>
+            <p>Carrito vacio</p>
+            <small>Toca un producto para agregarlo</small>
+          </div>
+        }
+      </div>
+
+      <div class="ticket-form">
+        <div class="destino-group">
+          <span>Destino / Cliente</span>
+
+          <div class="destino-picker" [class.open]="destinoMenuOpen()">
+            <button
+              type="button"
+              class="destino-trigger"
+              [class.destino-libre]="destinoVenta() === 'libre'"
+              [class.destino-delivery]="destinoVenta() === 'delivery'"
+              [class.destino-mesa]="destinoVenta().startsWith('mesa:')"
+              (click)="toggleDestinoMenu()"
+            >
+              <span class="destino-icon">{{ destinoBadge().icon }}</span>
+              <div class="destino-trigger-copy">
+                <strong>{{ destinoBadge().label }}</strong>
+                <small>{{ destinoBadge().hint }}</small>
+              </div>
+              <span class="destino-chevron" [class.rotated]="destinoMenuOpen()">▾</span>
+            </button>
+
+            @if (destinoMenuOpen()) {
+              <div class="destino-backdrop" (click)="closeDestinoMenu()"></div>
+              <div class="destino-panel">
+                <div class="destino-section">
+                  <span class="destino-section-title">Servicio rapido</span>
+                  <div class="destino-quick">
+                    <button
+                      type="button"
+                      class="destino-option"
+                      [class.active]="isDestinoSelected('libre')"
+                      (click)="pickDestino('libre')"
+                    >
+                      <span>🧍</span>
+                      <div>
+                        <strong>Cliente libre</strong>
+                        <small>Mostrador / para llevar</small>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      class="destino-option"
+                      [class.active]="isDestinoSelected('delivery')"
+                      (click)="pickDestino('delivery')"
+                    >
+                      <span>🛵</span>
+                      <div>
+                        <strong>Delivery</strong>
+                        <small>Pedido a domicilio</small>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="destino-section">
+                  <span class="destino-section-title">Mesas del salon</span>
+                  <div class="mesa-grid">
+                    @for (mesa of mesas; track mesa) {
+                      <button
+                        type="button"
+                        class="mesa-chip"
+                        [class.active]="isDestinoSelected('mesa:' + mesa)"
+                        (click)="pickDestino('mesa:' + mesa)"
+                      >
+                        <span>🪑</span>
+                        Mesa {{ mesa }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="payment-group">
+          <span>Metodo de pago</span>
+          <div class="payment-options">
+            @for (method of metodosPago; track method.value) {
+              <button
+                type="button"
+                class="payment-option"
+                [class.active]="metodoPago() === method.value"
+                (click)="setMetodoPago(method.value)"
+              >
+                <span>{{ method.icon }}</span>
+                {{ method.label }}
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (esEfectivo() && cart().length) {
+          <div class="cash-panel">
+            <label>
+              <span>Paga con</span>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                [ngModel]="pagaCon()"
+                (ngModelChange)="setPagaCon($event)"
+              />
+            </label>
+
+            <div class="cash-quick">
+              <button type="button" class="cash-chip" (click)="usarMontoExacto()">Exacto</button>
+              <button type="button" class="cash-chip" (click)="agregarBillete(10)">+S/ 10</button>
+              <button type="button" class="cash-chip" (click)="agregarBillete(20)">+S/ 20</button>
+              <button type="button" class="cash-chip" (click)="agregarBillete(50)">+S/ 50</button>
+              <button type="button" class="cash-chip" (click)="agregarBillete(100)">+S/ 100</button>
+            </div>
+
+            <div class="cash-summary">
+              @if (faltaPorPagar() > 0) {
+                <div class="cash-row falta">
+                  <span>Falta</span>
+                  <strong>{{ formatMoney(faltaPorPagar()) }}</strong>
+                </div>
+              } @else {
+                <div class="cash-row vuelto">
+                  <span>Vuelto</span>
+                  <strong>{{ formatMoney(vuelto()) }}</strong>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <footer class="ticket-footer">
+        <div class="ticket-subtotal">
+          <span>Subtotal ({{ cartCount() }} items)</span>
+          <strong>{{ formatMoney(cartTotal()) }}</strong>
+        </div>
+        <div class="ticket-total">
+          <span>Total a cobrar</span>
+          <strong>{{ formatMoney(cartTotal()) }}</strong>
+        </div>
+        <div class="ticket-actions">
+          <button type="button" class="btn-clear" [disabled]="!cart().length" (click)="clearCart()">Limpiar</button>
+          <button
+            type="button"
+            class="btn-checkout"
+            [disabled]="submitting() || !puedeCobrar()"
+            (click)="checkout()"
+          >
+            {{ submitting() ? 'Procesando...' : 'Cobrar pedido' }}
+          </button>
+        </div>
+      </footer>
+    </aside>
+  </div>
+</div>
+
+@if (cajaPanel() === 'apertura') {
+  <div class="caja-modal-backdrop" (click)="closeCajaPanel()">
+    <section class="caja-modal" (click)="$event.stopPropagation()">
+      <header>
+        <span class="modal-eyebrow">Configuracion de caja</span>
+        <h3>Abrir caja</h3>
+        <p>Ingresa el monto en efectivo con el que inicias el turno.</p>
+      </header>
+      <label>
+        <span>Monto inicial (S/)</span>
+        <input
+          type="number"
+          min="0"
+          step="0.5"
+          [ngModel]="montoApertura()"
+          (ngModelChange)="montoApertura.set(+$event || 0)"
+        />
+      </label>
+      <footer>
+        <button type="button" class="caja-btn ghost" (click)="closeCajaPanel()">Cancelar</button>
+        <button type="button" class="caja-btn primary" [disabled]="cajaSubmitting()" (click)="abrirCaja()">
+          {{ cajaSubmitting() ? 'Abriendo...' : 'Confirmar apertura' }}
+        </button>
+      </footer>
+    </section>
+  </div>
+}
+
+@if (cajaPanel() === 'cierre') {
+  <div class="caja-modal-backdrop" (click)="closeCajaPanel()">
+    <section class="caja-modal" (click)="$event.stopPropagation()">
+      <header>
+        <span class="modal-eyebrow">Configuracion de caja</span>
+        <h3>Cerrar caja</h3>
+        @if (cajaSesion(); as sesion) {
+          <p>
+            Efectivo esperado: {{ formatMoney(sesion.efectivoEnCaja) }} · Ventas del turno:
+            {{ formatMoney(sesion.totalVentas) }}
+          </p>
+        }
+      </header>
+      <label>
+        <span>Monto contado en caja (S/)</span>
+        <input
+          type="number"
+          min="0"
+          step="0.5"
+          [ngModel]="montoCierre()"
+          (ngModelChange)="montoCierre.set(+$event || 0)"
+        />
+      </label>
+      <label>
+        <span>Observaciones (opcional)</span>
+        <input
+          type="text"
+          [ngModel]="observacionesCierre()"
+          (ngModelChange)="observacionesCierre.set($event)"
+          placeholder="Diferencia, notas del turno..."
+        />
+      </label>
+      <footer>
+        <button type="button" class="caja-btn ghost" (click)="closeCajaPanel()">Cancelar</button>
+        <button type="button" class="caja-btn danger" [disabled]="cajaSubmitting()" (click)="cerrarCaja()">
+          {{ cajaSubmitting() ? 'Cerrando...' : 'Cerrar turno' }}
+        </button>
+      </footer>
+    </section>
+  </div>
+}

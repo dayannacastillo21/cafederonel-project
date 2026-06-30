@@ -1,0 +1,393 @@
+<app-page-header
+  eyebrow="Compras"
+  title="Proveedores"
+  description="Directorio de proveedores con categoria, contacto, RUC y operaciones CRUD."
+/>
+
+<section class="summary-strip">
+  <article class="summary-card">
+    <span>Total proveedores</span>
+    <strong>{{ rows().length }}</strong>
+    <small>Registrados en el sistema</small>
+  </article>
+  <article class="summary-card">
+    <span>Activos</span>
+    <strong>{{ activeCount() }}</strong>
+    <small>Disponibles para compras</small>
+  </article>
+  <article class="summary-card warning">
+    <span>Categorias</span>
+    <strong>{{ categoryCount() }}</strong>
+    <small>Tipos de suministro</small>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h3>Directorio</h3>
+      <span>{{ supplierCountLabel() }}</span>
+    </div>
+    <div class="panel-actions">
+      <button type="button" (click)="openEditor()">Nuevo proveedor</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <label class="inline-control wide">
+      <span>Buscar</span>
+      <input
+        type="search"
+        [value]="searchTerm()"
+        (input)="updateSearch($event)"
+        placeholder="Nombre, codigo, RUC, contacto o departamento"
+      />
+    </label>
+
+    <label class="inline-control">
+      <span>Categoria</span>
+      <select [value]="selectedCategory()" (change)="updateCategoryFilter($event)">
+        <option value="todos">Todas</option>
+        @for (category of categoryOptions(); track category) {
+          <option [value]="category">{{ category }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="inline-control">
+      <span>Estado</span>
+      <select [value]="selectedStatus()" (change)="updateStatusFilter($event)">
+        <option value="todos">Todos</option>
+        <option value="activo">Activos</option>
+        <option value="inactivo">Inactivos</option>
+      </select>
+    </label>
+
+    <button type="button" class="ghost-button" (click)="clearAllFilters()">Limpiar</button>
+  </div>
+
+  @if (actionMessage()) {
+    <div class="table-message error panel-message">{{ actionMessage() }}</div>
+  }
+
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr>
+          <th>Codigo</th>
+          <th>Proveedor</th>
+          <th class="col-hide-laptop">Categoria</th>
+          <th class="col-hide-laptop">Contacto</th>
+          <th>Telefono</th>
+          <th class="col-hide-laptop">Departamento</th>
+          <th class="col-hide-laptop">RUC</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of pagedRows(); track row.id) {
+          <tr
+            class="clickable-row"
+            [class.selected-row]="selectedProveedor()?.id === row.id && modalMode() !== null"
+            (click)="openDetail(row)"
+          >
+            <td><span class="chip">{{ row.codigoProveedor || '—' }}</span></td>
+            <td>
+              <strong>{{ row.nombre }}</strong>
+              <small>{{ row.email }} · {{ row.direccion }}</small>
+            </td>
+            <td class="col-hide-laptop cell-compact">{{ row.categoria }}</td>
+            <td class="col-hide-laptop cell-compact">{{ row.contacto || 'Sin contacto' }}</td>
+            <td class="cell-nowrap">{{ row.telefono }}</td>
+            <td class="col-hide-laptop cell-compact">{{ row.ciudad || '—' }}</td>
+            <td class="col-hide-laptop cell-compact">{{ row.ruc || '—' }}</td>
+            <td class="cell-nowrap">
+              <span class="status-pill" [class.status-ok]="isActive(row)" [class.status-warning]="!isActive(row)">
+                {{ isActive(row) ? 'Activo' : 'Inactivo' }}
+              </span>
+            </td>
+            <td class="cell-actions">
+              <div class="row-actions">
+                <button type="button" class="ghost-button" (click)="$event.stopPropagation(); openDetail(row)">
+                  Detalle
+                </button>
+                <button type="button" class="ghost-button" (click)="$event.stopPropagation(); openEditor(row)">
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button"
+                  [disabled]="isActionLoading(row.id)"
+                  (click)="toggleActivo(row, $event)"
+                >
+                  {{ isActive(row) ? 'Desactivar' : 'Activar' }}
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button danger-button"
+                  [disabled]="isActionLoading(row.id)"
+                  (click)="deleteProveedor(row, $event)"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="9">
+              <div class="table-message" [class.error]="errorMessage()">
+                {{ loading() ? 'Cargando proveedores desde la base...' : errorMessage() || 'No hay proveedores para los filtros actuales.' }}
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (filteredRows().length) {
+    <div class="pagination-bar">
+      <span>Mostrando {{ pageStart() }}-{{ pageEnd() }} de {{ filteredRows().length }} proveedores</span>
+      <div class="page-controls">
+        <button type="button" class="ghost-button" [disabled]="displayPage() === 1" (click)="previousPage()">
+          Anterior
+        </button>
+        @for (page of pageNumbers(); track page) {
+          <button
+            type="button"
+            class="ghost-button page-button"
+            [class.active]="displayPage() === page"
+            (click)="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        }
+        <button type="button" class="ghost-button" [disabled]="displayPage() === totalPages()" (click)="nextPage()">
+          Siguiente
+        </button>
+      </div>
+    </div>
+  }
+</section>
+
+@if (modalMode() === 'detail') {
+  @if (selectedProveedor(); as proveedor) {
+    <div class="modal-backdrop" (click)="closeModal()">
+      <section class="floating-card detail-modal" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow-label">Ficha del proveedor</span>
+            <h3>{{ proveedor.nombre }}</h3>
+            <p>{{ proveedor.notas || 'Proveedor sin notas registradas.' }}</p>
+          </div>
+          <button type="button" class="ghost-button close-button" (click)="closeModal()">Cerrar</button>
+        </header>
+
+        <dl class="detail-grid">
+          <div>
+            <dt>Codigo</dt>
+            <dd>{{ proveedor.codigoProveedor || 'Pendiente' }}</dd>
+          </div>
+          <div>
+            <dt>Categoria</dt>
+            <dd>{{ proveedor.categoria }}</dd>
+          </div>
+          <div>
+            <dt>RUC</dt>
+            <dd>{{ proveedor.ruc || 'Pendiente' }}</dd>
+          </div>
+          <div>
+            <dt>Contacto</dt>
+            <dd>{{ proveedor.contacto || 'Sin contacto' }}</dd>
+          </div>
+          <div>
+            <dt>Telefono</dt>
+            <dd>{{ proveedor.telefono }}</dd>
+          </div>
+          <div>
+            <dt>Correo</dt>
+            <dd>{{ proveedor.email }}</dd>
+          </div>
+          <div>
+            <dt>Direccion</dt>
+            <dd>{{ proveedor.direccion }}</dd>
+          </div>
+          <div>
+            <dt>Departamento</dt>
+            <dd>{{ proveedor.ciudad || '—' }}</dd>
+          </div>
+          <div>
+            <dt>Sitio web</dt>
+            <dd>
+              @if (proveedor.sitioWeb) {
+                <a [href]="proveedor.sitioWeb" target="_blank" rel="noopener">{{ proveedor.sitioWeb }}</a>
+              } @else {
+                Sin sitio web
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ isActive(proveedor) ? 'Activo' : 'Inactivo' }}</dd>
+          </div>
+          <div>
+            <dt>Actualizacion</dt>
+            <dd>{{ proveedor.fechaActualizacion || 'Sin fecha' }}</dd>
+          </div>
+        </dl>
+
+        <footer class="modal-actions">
+          <button type="button" class="ghost-button" (click)="openEditor(proveedor)">Editar proveedor</button>
+          <button
+            type="button"
+            class="ghost-button"
+            [disabled]="isActionLoading(proveedor.id)"
+            (click)="toggleActivo(proveedor, $event)"
+          >
+            {{ isActive(proveedor) ? 'Desactivar' : 'Activar' }}
+          </button>
+          <button
+            type="button"
+            class="ghost-button danger-button"
+            [disabled]="isActionLoading(proveedor.id)"
+            (click)="deleteProveedor(proveedor, $event)"
+          >
+            Eliminar
+          </button>
+          <button type="button" (click)="closeModal()">Listo</button>
+        </footer>
+      </section>
+    </div>
+  }
+}
+
+@if (modalMode() === 'edit' || modalMode() === 'create') {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <form class="floating-card editor-modal" [formGroup]="supplierForm" (ngSubmit)="saveProveedor()" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="eyebrow-label">{{ modalMode() === 'edit' ? 'Editar proveedor' : 'Nuevo proveedor' }}</span>
+          <h3>{{ modalMode() === 'edit' ? selectedProveedor()?.nombre : 'Registrar proveedor' }}</h3>
+          <p>Completa los datos comerciales que se guardaran en la base.</p>
+        </div>
+        <button type="button" class="ghost-button close-button" (click)="closeModal()">Cerrar</button>
+      </header>
+
+      <div class="form-grid">
+        <label>
+          <span>Codigo interno</span>
+          <input type="text" formControlName="codigoProveedor" placeholder="Ej. PROV-001 (opcional)" />
+          @if (fieldInvalid('codigoProveedor')) {
+            <small>Maximo 50 caracteres.</small>
+          }
+        </label>
+
+        <label>
+          <span>Nombre</span>
+          <input type="text" formControlName="nombre" placeholder="Ej. Distribuidora Lima" />
+          @if (fieldInvalid('nombre')) {
+            <small>Nombre obligatorio.</small>
+          }
+        </label>
+
+        <label>
+          <span>Categoria</span>
+          <select formControlName="categoria">
+            @for (category of categoriasCatalogo(); track category) {
+              <option [value]="category">{{ category }}</option>
+            }
+          </select>
+          @if (fieldInvalid('categoria')) {
+            <small>Categoria obligatoria.</small>
+          }
+        </label>
+
+        <label>
+          <span>RUC</span>
+          <input type="text" formControlName="ruc" placeholder="21 digitos numericos" maxlength="21" />
+          @if (fieldInvalid('ruc')) {
+            <small>El RUC debe tener exactamente 21 digitos.</small>
+          }
+        </label>
+
+        <label>
+          <span>Contacto</span>
+          <input type="text" formControlName="contacto" placeholder="Persona de contacto" />
+          @if (fieldInvalid('contacto')) {
+            <small>Maximo 120 caracteres.</small>
+          }
+        </label>
+
+        <label>
+          <span>Telefono</span>
+          <input type="text" formControlName="telefono" placeholder="Ej. 999111222" />
+          @if (fieldInvalid('telefono')) {
+            <small>Telefono obligatorio.</small>
+          }
+        </label>
+
+        <label>
+          <span>Correo</span>
+          <input type="email" formControlName="email" placeholder="compras@proveedor.pe" />
+          @if (fieldInvalid('email')) {
+            <small>Correo valido obligatorio.</small>
+          }
+        </label>
+
+        <label>
+          <span>Departamento</span>
+          <app-searchable-select
+            formControlName="ciudad"
+            [options]="departamentos"
+            searchPlaceholder="Buscar departamento..."
+            emptyLabel="Seleccionar departamento"
+            [invalid]="fieldInvalid('ciudad')"
+          />
+          @if (fieldInvalid('ciudad')) {
+            <small>Selecciona un departamento.</small>
+          }
+        </label>
+
+        <label class="span-2">
+          <span>Direccion</span>
+          <input type="text" formControlName="direccion" placeholder="Av. o calle completa" />
+          @if (fieldInvalid('direccion')) {
+            <small>Direccion obligatoria.</small>
+          }
+        </label>
+
+        <label>
+          <span>Sitio web</span>
+          <input type="text" formControlName="sitioWeb" placeholder="https://..." />
+          @if (fieldInvalid('sitioWeb')) {
+            <small>Maximo 255 caracteres.</small>
+          }
+        </label>
+
+        <label class="span-2">
+          <span>Notas</span>
+          <textarea rows="3" formControlName="notas" placeholder="Condiciones de pago, horarios, observaciones"></textarea>
+          @if (fieldInvalid('notas')) {
+            <small>Maximo 500 caracteres.</small>
+          }
+        </label>
+
+        <label class="checkbox-line span-2">
+          <input type="checkbox" formControlName="activo" />
+          <span>Proveedor activo para compras</span>
+        </label>
+      </div>
+
+      @if (formMessage()) {
+        <div class="form-message">{{ formMessage() }}</div>
+      }
+
+      <footer class="modal-actions">
+        <button type="button" class="ghost-button" (click)="closeModal()">Cancelar</button>
+        <button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando...' : 'Guardar proveedor' }}</button>
+      </footer>
+    </form>
+  </div>
+}

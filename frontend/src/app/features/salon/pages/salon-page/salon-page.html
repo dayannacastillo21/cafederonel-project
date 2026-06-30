@@ -1,0 +1,183 @@
+<app-page-header
+  eyebrow="Operaciones"
+  title="Mapa de la cafetería"
+  description="Vista en vivo de Cafedronel. Toca una mesa para operar desde aquí o ir al POS."
+/>
+
+@if (actionMessage()) {
+  <div class="feedback ok">{{ actionMessage() }}</div>
+}
+@if (errorMessage()) {
+  <div class="feedback error">{{ errorMessage() }}</div>
+}
+
+<section class="summary-strip salon-kpis">
+  <article class="summary-card featured">
+    <span>Ocupación</span>
+    <strong>{{ ocupacionPct() }}%</strong>
+    <small>{{ resumen().ocupadas + resumen().cuenta }} mesas activas</small>
+  </article>
+  <button type="button" class="summary-card ok filter-card" [class.active]="isFilterActive('disponible')" (click)="filterByEstado('disponible')">
+    <span>Disponibles</span>
+    <strong>{{ resumen().disponibles }}</strong>
+  </button>
+  <button type="button" class="summary-card warn filter-card" [class.active]="isFilterActive('reservada')" (click)="filterByEstado('reservada')">
+    <span>Reservadas</span>
+    <strong>{{ resumen().reservadas }}</strong>
+  </button>
+  <button type="button" class="summary-card busy filter-card" [class.active]="isFilterActive('ocupada')" (click)="filterByEstado('ocupada')">
+    <span>Ocupadas</span>
+    <strong>{{ resumen().ocupadas }}</strong>
+  </button>
+  <button type="button" class="summary-card bill filter-card" [class.active]="isFilterActive('cuenta')" (click)="filterByEstado('cuenta')">
+    <span>Piden cuenta</span>
+    <strong>{{ resumen().cuenta }}</strong>
+  </button>
+  <button type="button" class="summary-card muted filter-card" [class.active]="isFilterActive('bloqueada')" (click)="filterByEstado('bloqueada')">
+    <span>Bloqueadas</span>
+    <strong>{{ resumen().bloqueadas }}</strong>
+  </button>
+</section>
+
+<div class="salon-layout">
+  <section class="floor-panel panel">
+    <div class="panel-header floor-toolbar">
+      <div class="toolbar-title">
+        <h3>Plano en vivo</h3>
+        <span class="toolbar-hint">El color del borde indica el estado. Toca una mesa para operar.</span>
+      </div>
+      <div class="toolbar-meta">
+        <div class="legend" aria-label="Leyenda de estados">
+          <span class="legend-item disponible"><i></i>Libre</span>
+          <span class="legend-item reservada"><i></i>Reserva</span>
+          <span class="legend-item ocupada"><i></i>Ocupada</span>
+          <span class="legend-item cuenta"><i></i>Cuenta</span>
+          <span class="legend-item bloqueada"><i></i>Bloq.</span>
+        </div>
+        <div class="sync-line">
+          <span class="sync-dot" [class.live]="!loading()"></span>
+          <span>{{ lastSyncLabel() }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="cafeteria-floor" [class.is-filtering]="mesasDimmed()">
+      <app-salon-floor-map
+        [mesas]="mesas()"
+        [selectedNumero]="selectedMesa()?.numero ?? null"
+        [filterEstado]="estadoFilter()"
+        (mesaSelected)="onMesaSelected($event)"
+      />
+
+      @if (loading()) {
+        <div class="floor-loading">
+          <div class="loading-shimmer"></div>
+          <span>Cargando mapa en vivo...</span>
+        </div>
+      }
+    </div>
+
+    @if (estadoFilter() !== 'todos') {
+      <div class="filter-banner">
+        <span>Filtrando: <strong>{{ estadoFilterLabel() }}</strong></span>
+        <button type="button" class="ghost-button" (click)="filterByEstado('todos')">Ver todas</button>
+      </div>
+    }
+  </section>
+
+  <aside class="detail-panel panel">
+    @if (selectedMesa(); as mesa) {
+      <div class="detail-hero" [class]="mesa.estado">
+        <div class="detail-hero-top">
+          <div class="mesa-chip">M{{ mesa.numero }}</div>
+          <button type="button" class="ghost-button close-button" (click)="closePanel()" aria-label="Cerrar panel">✕</button>
+        </div>
+        <h3>{{ zonaLabel(mesa.zona) }}</h3>
+        <p>{{ mesa.capacidad }} personas · {{ estadoLabel(mesa.estado) }}</p>
+        <span class="status-pill large" [class]="mesa.estado">{{ estadoLabel(mesa.estado) }}</span>
+      </div>
+
+      <div class="detail-body">
+        @if (canTakeOrder(mesa)) {
+          <div class="detail-stats">
+            <div>
+              <span>Estado</span>
+              <strong>{{ estadoLabel(mesa.estado) }}</strong>
+            </div>
+            <div>
+              <span>Capacidad</span>
+              <strong>{{ mesa.capacidad }} pers.</strong>
+            </div>
+          </div>
+          <a class="primary-button full-width" [routerLink]="posLink()" [queryParams]="posQuery(mesa)">
+            Tomar pedido en POS
+          </a>
+        } @else if (mesa.estado === 'bloqueada') {
+          <div class="detail-tip bloqueada">
+            <strong>Mesa bloqueada</strong>
+            <p>No disponible para servicio. Desbloquéala desde administración cuando corresponda.</p>
+          </div>
+        } @else {
+          <div class="detail-stats">
+            <div>
+              <span>Total pedido</span>
+              <strong class="money">{{ formatMoney(mesa.pedidoTotal) }}</strong>
+            </div>
+            <div>
+              <span>Tiempo en mesa</span>
+              <strong>{{ tiempoEnMesa(mesa.pedidoFecha) }}</strong>
+            </div>
+            <div>
+              <span>Inicio</span>
+              <strong>{{ formatDate(mesa.pedidoFecha) }}</strong>
+            </div>
+            @if (mesa.pedidoId) {
+              <div>
+                <span>Pedido</span>
+                <strong>#{{ mesa.pedidoId }}</strong>
+              </div>
+            }
+          </div>
+
+          @if (mesa.pedidoResumen) {
+            <div class="order-preview">
+              <span class="eyebrow-label">Resumen</span>
+              <p>{{ mesa.pedidoResumen }}</p>
+            </div>
+          }
+
+          <a class="primary-button full-width" [routerLink]="posLink()" [queryParams]="posQuery(mesa)">
+            @if (mesa.estado === 'cuenta') {
+              Cobrar en POS
+            } @else {
+              Agregar productos (POS)
+            }
+          </a>
+
+          @if (mesa.estado === 'ocupada') {
+            <button type="button" class="ghost-button full-width bill-action" [disabled]="acting()" (click)="marcarCuenta(mesa)">
+              Cliente pide la cuenta
+            </button>
+          }
+
+          <button type="button" class="ghost-button full-width danger" [disabled]="acting()" (click)="liberarMesa(mesa)">
+            Liberar mesa
+          </button>
+        }
+      </div>
+    } @else {
+      <div class="detail-empty">
+        <div class="empty-icon">◎</div>
+        <strong>Selecciona una mesa</strong>
+        <p>El detalle y las acciones rápidas aparecen aquí al tocar cualquier mesa del mapa.</p>
+        <div class="empty-legend">
+          <div><i class="dot disponible"></i> Verde — disponible</div>
+          <div><i class="dot reservada"></i> Ámbar — reservada</div>
+          <div><i class="dot ocupada"></i> Rojo — ocupada</div>
+          <div><i class="dot cuenta"></i> Azul — pide cuenta</div>
+          <div><i class="dot bloqueada"></i> Gris — bloqueada</div>
+        </div>
+      </div>
+    }
+  </aside>
+</div>

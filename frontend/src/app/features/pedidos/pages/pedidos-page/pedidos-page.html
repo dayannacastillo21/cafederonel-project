@@ -1,0 +1,324 @@
+<app-page-header
+  eyebrow="Operaciones"
+  title="Pedidos"
+  description="Correcciones rapidas de ventas del POS: mesa, productos o anulacion completa."
+/>
+
+<section class="help-panel">
+  <strong>¿Que puedes corregir en 2 minutos?</strong>
+  <ul>
+    <li><strong>Mesa equivocada:</strong> el mozo puso Mesa 3 y era Mesa 7.</li>
+    <li><strong>Productos:</strong> quitar un item, cambiar cantidades o agregar uno que falto.</li>
+    <li><strong>Anular venta:</strong> si el pedido entero fue un error, usa Anular.</li>
+  </ul>
+  <small>Pasados 2 minutos el pedido queda bloqueado porque la cocina ya pudo empezar a prepararlo.</small>
+</section>
+
+@if (isAdmin()) {
+  <section class="admin-panel" [class.unlocked]="adminUnlocked()">
+    <div class="admin-panel-head">
+      <div>
+        <strong>Correccion administrativa</strong>
+        <p>Para errores graves pasados los 2 minutos. Solo usuarios ADMIN con PIN de supervisor.</p>
+      </div>
+      @if (adminUnlocked()) {
+        <span class="admin-active-badge">Supervisor activo</span>
+      }
+    </div>
+
+    @if (!adminUnlocked()) {
+      <div class="admin-unlock-row">
+        <input
+          type="password"
+          inputmode="numeric"
+          maxlength="4"
+          placeholder="PIN de 4 digitos"
+          [value]="adminPinInput()"
+          (input)="onAdminPinInput($event)"
+        />
+        <button type="button" class="primary-button" (click)="activarModoAdmin()">Activar supervisor</button>
+      </div>
+      @if (adminUnlockError()) {
+        <small class="admin-error">{{ adminUnlockError() }}</small>
+      }
+    } @else {
+      <div class="admin-unlocked-row">
+        <span>Correccion ilimitada habilitada en esta sesion. Usa <strong>Corregir (Admin)</strong> en cualquier pedido bloqueado.</span>
+        <button type="button" class="ghost-button" (click)="cerrarModoAdmin()">Cerrar supervisor</button>
+      </div>
+    }
+  </section>
+}
+
+@if (actionMessage()) {
+  <div class="feedback-banner ok">{{ actionMessage() }}</div>
+}
+@if (actionError()) {
+  <div class="feedback-banner error">{{ actionError() }}</div>
+}
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h3>Pedidos recientes</h3>
+      <span>Cada venta del POS aparece aqui. Usa <strong>Corregir</strong> mientras el contador este activo.</span>
+    </div>
+  </div>
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr>
+          @for (column of columns; track column) {
+            <th>{{ column }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.id) {
+          <tr>
+            <td><strong>#{{ row.id }}</strong></td>
+            <td>{{ servicioLabel(row.cliente) }}</td>
+            <td class="products-cell">{{ productosLabel(row) }}</td>
+            <td>
+              <div class="status-stack">
+                <span
+                  class="status-pill"
+                  [class.status-ok]="row.estado === 'completado'"
+                  [class.status-warning]="row.estado === 'en_proceso'"
+                  [class.status-info]="row.estado === 'pendiente'"
+                  [class.status-danger]="row.estado === 'cancelado'"
+                >
+                  {{ estadoLabel(row.estado) }}
+                </span>
+                @if (puedeEditar(row)) {
+                  <span class="edit-window-pill">Quedan {{ countdownLabel(row) }}</span>
+                } @else if (row.estado !== 'cancelado') {
+                  <span class="locked-pill">Ya no editable</span>
+                }
+              </div>
+            </td>
+            <td class="amount">{{ formatMoney(row.total) }}</td>
+            <td>{{ formatDate(row.fechaCreacion) }}</td>
+            <td>
+              <div class="row-actions">
+                <button
+                  type="button"
+                  class="ghost-button compact primary-action"
+                  [disabled]="!puedeEditar(row) || saving()"
+                  (click)="openEdit(row)"
+                >
+                  Corregir
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button compact danger-button"
+                  [disabled]="!puedeEditar(row) || saving()"
+                  (click)="cancelarPedido(row)"
+                >
+                  Anular
+                </button>
+                @if (puedeCorregirAdmin(row) && !puedeEditar(row)) {
+                  <button
+                    type="button"
+                    class="ghost-button compact admin-action"
+                    [disabled]="saving()"
+                    (click)="openEditAdmin(row)"
+                  >
+                    Corregir (Admin)
+                  </button>
+                  <button
+                    type="button"
+                    class="ghost-button compact admin-danger"
+                    [disabled]="saving()"
+                    (click)="cancelarPedidoAdmin(row)"
+                  >
+                    Anular (Admin)
+                  </button>
+                }
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7">
+              <div class="table-message">
+                {{ loading() ? 'Cargando pedidos desde la base...' : errorMessage() || 'No hay pedidos registrados.' }}
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@if (editPedido(); as pedido) {
+  <div class="modal-backdrop" (click)="closeEdit()">
+    <section class="floating-card edit-modal" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="eyebrow-label">{{ editAsAdmin() ? 'Correccion administrativa' : 'Corregir pedido' }}</span>
+          <h3>Pedido #{{ pedido.id }}</h3>
+          @if (editAsAdmin()) {
+            <p class="modal-hint admin-mode-hint">
+              Modo supervisor: sin limite de tiempo. Los cambios quedan registrados como correccion administrativa.
+            </p>
+          } @else {
+            <p class="modal-hint">
+              Tiempo restante: <strong>{{ countdownLabel(pedido) }}</strong>. Ajusta mesa y productos, luego guarda.
+            </p>
+          }
+        </div>
+        <button type="button" class="ghost-button" (click)="closeEdit()">Cerrar</button>
+      </header>
+
+      <div class="edit-tip">
+        <span>1</span>
+        <div>
+          <strong>¿Donde se sirve?</strong>
+          <p>Si el mozo se equivoco de mesa, elige la correcta aqui. Tambien puedes cambiar a delivery o mostrador.</p>
+        </div>
+      </div>
+
+      <div class="destino-field">
+        <div class="destino-picker">
+          <button type="button" class="destino-trigger" (click)="toggleDestinoMenu()">
+            <span class="destino-icon">{{ destinoBadge().icon }}</span>
+            <div class="destino-trigger-copy">
+              <strong>{{ destinoBadge().label }}</strong>
+              <small>{{ destinoBadge().hint }}</small>
+            </div>
+            <span class="destino-chevron" [class.rotated]="destinoMenuOpen()">▾</span>
+          </button>
+
+          @if (destinoMenuOpen()) {
+            <div class="destino-backdrop" (click)="closeDestinoMenu()"></div>
+            <div class="destino-panel">
+              <div class="destino-section">
+                <span class="destino-section-title">Servicio rapido</span>
+                <div class="destino-quick">
+                  <button
+                    type="button"
+                    class="destino-option"
+                    [class.active]="isDestinoSelected('libre')"
+                    (click)="pickDestino('libre')"
+                  >
+                    <span>🧍</span>
+                    <div>
+                      <strong>Mostrador</strong>
+                      <small>Para llevar / sin mesa</small>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="destino-option"
+                    [class.active]="isDestinoSelected('delivery')"
+                    (click)="pickDestino('delivery')"
+                  >
+                    <span>🛵</span>
+                    <div>
+                      <strong>Delivery</strong>
+                      <small>Pedido a domicilio</small>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="destino-section">
+                <span class="destino-section-title">Mesas del salon</span>
+                <div class="mesa-grid">
+                  @for (mesa of mesas; track mesa) {
+                    <button
+                      type="button"
+                      class="mesa-chip"
+                      [class.active]="isDestinoSelected('mesa:' + mesa)"
+                      (click)="pickDestino('mesa:' + mesa)"
+                    >
+                      <span>🪑</span>
+                      Mesa {{ mesa }}
+                    </button>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="edit-tip">
+        <span>2</span>
+        <div>
+          <strong>Productos del pedido</strong>
+          <p>Usa <strong>− / +</strong> para cambiar cantidades. La <strong>x</strong> quita el producto por completo.</p>
+        </div>
+      </div>
+
+      <div class="lines-panel">
+        @for (line of editLines(); track line.productoId) {
+          <article class="line-row">
+            <div class="line-info">
+              <strong>{{ line.nombre }}</strong>
+              <span>{{ formatMoney(line.precio) }} c/u</span>
+            </div>
+            <div class="line-qty">
+              <button type="button" aria-label="Quitar uno" (click)="decrementLine(line)">−</button>
+              <span>{{ line.cantidad }}</span>
+              <button type="button" aria-label="Agregar uno" (click)="incrementLine(line)">+</button>
+            </div>
+            <strong class="line-total">{{ formatMoney(line.precio * line.cantidad) }}</strong>
+            <button type="button" class="line-remove" aria-label="Quitar producto" (click)="removeLine(line)">×</button>
+          </article>
+        } @empty {
+          <div class="lines-empty">Agrega al menos un producto para guardar.</div>
+        }
+      </div>
+
+      <div class="edit-tip">
+        <span>3</span>
+        <div>
+          <strong>Agregar producto que falto</strong>
+          <p>Elige del catalogo y pulsa Agregar. Si ya esta en la lista, suma la cantidad.</p>
+        </div>
+      </div>
+
+      <div class="add-product-row">
+        <select [value]="selectedProductId() ?? ''" (change)="onProductSelect($event)" [disabled]="catalogLoading()">
+          <option value="">
+            {{ catalogLoading() ? 'Cargando catalogo...' : 'Selecciona un producto' }}
+          </option>
+          @for (product of catalog(); track product.id) {
+            <option [value]="product.id">{{ product.nombre }} — {{ formatMoney(product.precio) }}</option>
+          }
+        </select>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          [value]="addQty()"
+          (change)="onAddQtyChange($event)"
+          aria-label="Cantidad a agregar"
+        />
+        <button type="button" class="ghost-button" [disabled]="!selectedProductId()" (click)="addProduct()">
+          Agregar
+        </button>
+      </div>
+
+      <div class="edit-total-bar">
+        <span>Nuevo total</span>
+        <strong>{{ formatMoney(editTotal()) }}</strong>
+      </div>
+
+      <footer class="modal-actions">
+        <button type="button" class="ghost-button" (click)="closeEdit()" [disabled]="saving()">Descartar</button>
+        <button
+          type="button"
+          class="primary-button"
+          (click)="saveEdit()"
+          [disabled]="saving() || !canSaveEdit()"
+        >
+          {{ saving() ? 'Guardando...' : editAsAdmin() ? 'Guardar (Admin)' : 'Guardar correccion' }}
+        </button>
+      </footer>
+    </section>
+  </div>
+}

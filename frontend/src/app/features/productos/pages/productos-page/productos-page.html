@@ -1,0 +1,424 @@
+<app-page-header
+  eyebrow="Catalogo"
+  title="Productos"
+  description="Modulo para listar, crear, editar y eliminar productos del inventario Cafedronel."
+/>
+
+<section class="summary-strip">
+  <article class="summary-card">
+    <span>Total productos</span>
+    <strong>{{ loading() ? '...' : rows().length }}</strong>
+    <small>Catalogo registrado</small>
+  </article>
+  <article class="summary-card">
+    <span>Activos</span>
+    <strong>{{ activeCount() }}</strong>
+    <small>Disponibles para venta</small>
+  </article>
+  <article class="summary-card warning">
+    <span>Sin codigo</span>
+    <strong>{{ missingBarcodeCount() }}</strong>
+    <small>Requieren codigo de barras</small>
+  </article>
+  <article class="summary-card danger">
+    <span>Margen bajo</span>
+    <strong>{{ lowMarginCount() }}</strong>
+    <small>Menor a 35%</small>
+  </article>
+  <article class="summary-card danger">
+    <span>Sin stock</span>
+    <strong>{{ stockLoading() ? '...' : noStockCount() }}</strong>
+    <small>No puedes vender mas</small>
+  </article>
+  <article class="summary-card warning">
+    <span>Stock bajo</span>
+    <strong>{{ stockLoading() ? '...' : lowStockCount() }}</strong>
+    <small>5 unidades o menos</small>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h3>Listado de productos</h3>
+      <span>{{ productCountLabel() }}</span>
+    </div>
+    <div class="panel-actions">
+      <button type="button" (click)="openEditor()">Nuevo producto</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <label class="inline-control wide">
+      <span>Buscar</span>
+      <input
+        type="search"
+        [value]="searchTerm()"
+        (input)="updateSearch($event)"
+        placeholder="Nombre, SKU, codigo o unidad"
+      />
+    </label>
+
+    <label class="inline-control">
+      <span>Categoria</span>
+      <select [value]="selectedCategory()" (change)="updateCategoryFilter($event)">
+        <option value="todos">Todas</option>
+        @for (category of categoryOptions(); track category) {
+          <option [value]="category">{{ category }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="inline-control">
+      <span>Estado</span>
+      <select [value]="selectedStatus()" (change)="updateStatusFilter($event)">
+        <option value="todos">Todos</option>
+        <option value="activo">Activos</option>
+        <option value="inactivo">Inactivos</option>
+      </select>
+    </label>
+
+    <label class="inline-control">
+      <span>Alerta</span>
+      <select [value]="selectedAlert()" (change)="updateAlertFilter($event)">
+        <option value="todos">Todas</option>
+        <option value="sin_codigo">Sin codigo</option>
+        <option value="margen_bajo">Margen bajo</option>
+        <option value="sin_stock">Sin stock</option>
+        <option value="stock_bajo">Stock bajo</option>
+        <option value="inactivos">Inactivos</option>
+      </select>
+    </label>
+
+    <button type="button" class="ghost-button" (click)="clearAllFilters()">Limpiar</button>
+  </div>
+
+  @if (actionMessage()) {
+    <div class="table-message error panel-message">{{ actionMessage() }}</div>
+  }
+
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Producto</th>
+          <th class="col-hide-laptop">Codigo</th>
+          <th class="col-hide-laptop">Categoria</th>
+          <th>Precio</th>
+          <th>Puedes vender</th>
+          <th class="col-hide-laptop">Margen</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of pagedRows(); track row.id) {
+          <tr
+            class="clickable-row"
+            [class.selected-row]="selectedProduct()?.id === row.id && modalMode() !== null"
+            (click)="openDetail(row)"
+          >
+            <td><span class="chip">{{ row.sku }}</span></td>
+            <td>
+              <div class="product-cell">
+                <img
+                  class="product-thumb"
+                  [src]="productImageUrl(row.imagenUrl)"
+                  [alt]="row.nombre"
+                  loading="lazy"
+                  (error)="onProductImageError($event)"
+                />
+                <div>
+                  <strong>{{ row.nombre }}</strong>
+                  <small>{{ row.categoria }} · {{ row.descripcion || 'Sin descripcion' }}</small>
+                </div>
+              </div>
+            </td>
+            <td class="col-hide-laptop cell-compact">{{ row.codigoBarras || 'Sin codigo' }}</td>
+            <td class="col-hide-laptop cell-compact">{{ row.categoria }}</td>
+            <td class="amount cell-nowrap">{{ formatMoney(row.precio) }}</td>
+            <td class="cell-nowrap">
+              <span
+                class="stock-pill"
+                [class.stock-ok]="!isStockDanger(row) && !isStockWarning(row) && stockUnits(row) !== null"
+                [class.stock-warning]="isStockWarning(row)"
+                [class.stock-danger]="isStockDanger(row)"
+                [class.stock-muted]="stockUnits(row) === null"
+                [title]="stockHint(row)"
+              >
+                {{ stockLabel(row) }}
+              </span>
+            </td>
+            <td class="col-hide-laptop cell-nowrap">{{ formatPercent(margin(row)) }}%</td>
+            <td class="cell-nowrap">
+              <span class="status-pill" [class.status-ok]="isActive(row)" [class.status-warning]="!isActive(row)">
+                {{ isActive(row) ? 'Activo' : 'Inactivo' }}
+              </span>
+            </td>
+            <td class="cell-actions">
+              <div class="row-actions">
+                <button type="button" class="ghost-button" (click)="$event.stopPropagation(); openDetail(row)">
+                  Detalle
+                </button>
+                <button type="button" class="ghost-button" (click)="$event.stopPropagation(); openEditor(row)">
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button"
+                  [disabled]="isActionLoading(row.id)"
+                  (click)="toggleActivo(row, $event)"
+                >
+                  {{ isActive(row) ? 'Desactivar' : 'Activar' }}
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button danger-button"
+                  [disabled]="isActionLoading(row.id)"
+                  (click)="deleteProduct(row, $event)"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8">
+              <div class="table-message" [class.error]="errorMessage()">
+                {{ loading() ? 'Cargando productos desde la base...' : errorMessage() || 'No hay productos para los filtros actuales.' }}
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (filteredRows().length) {
+    <div class="pagination-bar">
+      <span>Mostrando {{ pageStart() }}-{{ pageEnd() }} de {{ filteredRows().length }} productos</span>
+      <div class="page-controls">
+        <button type="button" class="ghost-button" [disabled]="displayPage() === 1" (click)="previousPage()">
+          Anterior
+        </button>
+        @for (page of pageNumbers(); track page) {
+          <button
+            type="button"
+            class="ghost-button page-button"
+            [class.active]="displayPage() === page"
+            (click)="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        }
+        <button type="button" class="ghost-button" [disabled]="displayPage() === totalPages()" (click)="nextPage()">
+          Siguiente
+        </button>
+      </div>
+    </div>
+  }
+</section>
+
+@if (modalMode() === 'detail') {
+  @if (selectedProduct(); as product) {
+    <div class="modal-backdrop" (click)="closeModal()">
+      <section class="floating-card detail-modal" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow-label">Ficha del producto</span>
+            <h3>{{ product.nombre }}</h3>
+            <p>{{ product.descripcion || 'Producto sin descripcion registrada.' }}</p>
+          </div>
+          <button type="button" class="ghost-button close-button" (click)="closeModal()">Cerrar</button>
+        </header>
+
+        <dl class="detail-grid">
+          <div>
+            <dt>SKU</dt>
+            <dd>{{ product.sku }}</dd>
+          </div>
+          <div>
+            <dt>Codigo de barras</dt>
+            <dd>{{ product.codigoBarras || 'Pendiente' }}</dd>
+          </div>
+          <div>
+            <dt>Categoria</dt>
+            <dd>{{ product.categoria }}</dd>
+          </div>
+          <div>
+            <dt>Costo</dt>
+            <dd>{{ formatMoney(product.costo) }}</dd>
+          </div>
+          <div>
+            <dt>Precio venta</dt>
+            <dd>{{ formatMoney(product.precio) }}</dd>
+          </div>
+          <div>
+            <dt>Puedes vender</dt>
+            <dd>{{ stockLabel(product) }}</dd>
+          </div>
+          <div>
+            <dt>Insumo limitante</dt>
+            <dd>{{ stockByProductId().get(product.id)?.insumoLimitante || 'Faltan insumos vinculados en receta' }}</dd>
+          </div>
+          <div>
+            <dt>Margen</dt>
+            <dd>{{ formatPercent(margin(product)) }}%</dd>
+          </div>
+          <div>
+            <dt>Unidad</dt>
+            <dd>{{ product.unidadVenta || 'unidad' }}</dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ isActive(product) ? 'Activo' : 'Inactivo' }}</dd>
+          </div>
+          <div>
+            <dt>Actualizacion</dt>
+            <dd>{{ product.fechaActualizacion || 'Sin fecha' }}</dd>
+          </div>
+        </dl>
+
+        <footer class="modal-actions">
+          <button type="button" class="ghost-button" (click)="openEditor(product)">Editar producto</button>
+          <button
+            type="button"
+            class="ghost-button"
+            [disabled]="isActionLoading(product.id)"
+            (click)="toggleActivo(product, $event)"
+          >
+            {{ isActive(product) ? 'Desactivar' : 'Activar' }}
+          </button>
+          <button
+            type="button"
+            class="ghost-button danger-button"
+            [disabled]="isActionLoading(product.id)"
+            (click)="deleteProduct(product, $event)"
+          >
+            Eliminar
+          </button>
+          <button type="button" (click)="closeModal()">Listo</button>
+        </footer>
+      </section>
+    </div>
+  }
+}
+
+@if (modalMode() === 'edit' || modalMode() === 'create') {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <form class="floating-card editor-modal" [formGroup]="productForm" (ngSubmit)="saveProduct()" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="eyebrow-label">{{ modalMode() === 'edit' ? 'Editar producto' : 'Nuevo producto' }}</span>
+          <h3>{{ modalMode() === 'edit' ? selectedProduct()?.nombre : 'Registrar producto' }}</h3>
+          <p>Completa los datos comerciales que se guardaran en la base.</p>
+        </div>
+        <button type="button" class="ghost-button close-button" (click)="closeModal()">Cerrar</button>
+      </header>
+
+      <div class="form-grid">
+        <label>
+          <span>Nombre</span>
+          <input type="text" formControlName="nombre" placeholder="Ej. Latte vainilla" />
+          @if (fieldInvalid('nombre')) {
+            <small>Nombre obligatorio.</small>
+          }
+        </label>
+
+        <label>
+          <span>Categoria</span>
+          <app-searchable-select
+            formControlName="categoria"
+            [options]="categoriasCatalogo()"
+            searchPlaceholder="Buscar categoria..."
+            emptyLabel="Seleccionar categoria"
+            [invalid]="fieldInvalid('categoria')"
+          />
+          @if (fieldInvalid('categoria')) {
+            <small>Categoria obligatoria.</small>
+          }
+        </label>
+
+        <label>
+          <span>SKU</span>
+          <input type="text" formControlName="sku" placeholder="Ej. CAF-BEB-001" />
+          @if (fieldInvalid('sku')) {
+            <small>Maximo 50 caracteres.</small>
+          }
+        </label>
+
+        <label>
+          <span>Codigo de barras</span>
+          <input type="text" formControlName="codigoBarras" placeholder="Ej. 775120000001" />
+          @if (fieldInvalid('codigoBarras')) {
+            <small>Maximo 80 caracteres.</small>
+          }
+        </label>
+
+        <label>
+          <span>Precio venta</span>
+          <input type="number" min="0" step="0.10" formControlName="precio" />
+          @if (fieldInvalid('precio')) {
+            <small>Precio mayor que cero.</small>
+          }
+        </label>
+
+        <label>
+          <span>Costo</span>
+          <input type="number" min="0" step="0.10" formControlName="costo" />
+          @if (fieldInvalid('costo')) {
+            <small>El costo no puede ser negativo.</small>
+          }
+        </label>
+
+        <label>
+          <span>Margen %</span>
+          <input type="number" min="0" step="0.10" formControlName="margenPorcentaje" />
+          @if (fieldInvalid('margenPorcentaje')) {
+            <small>El margen no puede ser negativo.</small>
+          }
+        </label>
+
+        <label>
+          <span>Unidad de venta</span>
+          <input type="text" formControlName="unidadVenta" placeholder="unidad, vaso, plato" />
+          @if (fieldInvalid('unidadVenta')) {
+            <small>Maximo 30 caracteres.</small>
+          }
+        </label>
+
+        <label class="span-2">
+          <span>Descripcion</span>
+          <textarea rows="3" formControlName="descripcion" placeholder="Descripcion visible para operaciones"></textarea>
+          @if (fieldInvalid('descripcion')) {
+            <small>Maximo 500 caracteres.</small>
+          }
+        </label>
+
+        <label class="span-2">
+          <span>Imagen URL</span>
+          <input type="text" formControlName="imagenUrl" placeholder="https://..." />
+          @if (fieldInvalid('imagenUrl')) {
+            <small>Maximo 500 caracteres.</small>
+          }
+        </label>
+
+        <label class="checkbox-line span-2">
+          <input type="checkbox" formControlName="activo" />
+          <span>Producto activo para venta</span>
+        </label>
+      </div>
+
+      @if (formMessage()) {
+        <div class="form-message">{{ formMessage() }}</div>
+      }
+
+      <footer class="modal-actions">
+        <button type="button" class="ghost-button" (click)="closeModal()">Cancelar</button>
+        <button type="submit" [disabled]="saving()">{{ saving() ? 'Guardando...' : 'Guardar producto' }}</button>
+      </footer>
+    </form>
+  </div>
+}

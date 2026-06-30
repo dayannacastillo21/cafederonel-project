@@ -1,0 +1,16 @@
+<header class="topbar">
+  <div>
+    <p class="eyebrow">Sistema Web de Inventario</p>
+    <h1>Centro de control</h1>
+  </div>
+
+  <div class="topbar-actions">
+    <span class="api-chip">Entorno local</span>
+    @if (auth.session(); as session) {
+      <span class="api-chip">{{ session.userName }} - {{ session.role }}</span>
+      <button type="button" class="logout-button" (click)="logout()">Salir</button>
+    } @else {
+      <a class="login-link" routerLink="/login">Acceder</a>
+    }
+  </div>
+</header>

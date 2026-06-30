@@ -1,0 +1,254 @@
+<div class="floor-map-shell">
+  <div class="floor-viewport">
+    <div class="floor-zoom-bar">
+      <button type="button" class="zoom-btn" (click)="zoomOut()" aria-label="Alejar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+      </button>
+      <span class="zoom-label">{{ (zoom() * 100) | number: '1.0-0' }}%</span>
+      <button type="button" class="zoom-btn" (click)="zoomIn()" aria-label="Acercar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      </button>
+      <button type="button" class="zoom-btn reset" (click)="resetZoom()">Ajustar</button>
+    </div>
+
+    <div class="floor-scaler" [style.transform]="'scale(' + zoom() + ')'">
+      <svg
+        class="floor-svg"
+        [attr.viewBox]="'0 0 ' + viewW + ' ' + viewH"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-label="Mapa interactivo de la cafetería"
+      >
+        <defs>
+          <linearGradient id="woodFloor" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f5ead8" />
+            <stop offset="100%" stop-color="#e8d5b5" />
+          </linearGradient>
+          <linearGradient id="woodTable" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#e8c878" />
+            <stop offset="100%" stop-color="#b8893a" />
+          </linearGradient>
+          <linearGradient id="deckFloor" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#d4a855" />
+            <stop offset="100%" stop-color="#a07838" />
+          </linearGradient>
+          <linearGradient id="chairGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#8fbc7a" />
+            <stop offset="100%" stop-color="#5a7a4a" />
+          </linearGradient>
+          <linearGradient id="marbleBar" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#fafaf9" />
+            <stop offset="100%" stop-color="#d6d3d1" />
+          </linearGradient>
+          <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#3d2910" flood-opacity="0.18" />
+          </filter>
+          <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#3d2910" flood-opacity="0.12" />
+          </filter>
+        </defs>
+
+        <!-- Decoración -->
+        <g class="floor-decor" aria-hidden="true">
+          <rect width="1100" height="720" fill="url(#woodFloor)" />
+          <g opacity="0.18">
+            @for (i of plankV; track i) {
+              <line [attr.x1]="i * 46" y1="0" [attr.x2]="i * 46" y2="720" stroke="#c4a574" stroke-width="0.6" />
+            }
+            @for (i of plankH; track i) {
+              <line x1="280" [attr.y1]="i * 52" x2="1100" [attr.y2]="i * 52" stroke="#c4a574" stroke-width="0.4" />
+            }
+          </g>
+
+          <!-- Terraza decorativa -->
+          <g>
+            <rect x="20" y="20" width="248" height="178" rx="14" fill="url(#deckFloor)" stroke="#8b6914" stroke-width="1.2" opacity="0.92" />
+            <text x="36" y="44" fill="#fff" font-size="11" font-weight="700" letter-spacing="2">TERRAZA</text>
+          </g>
+
+          <!-- Barra -->
+          <g>
+            <rect x="20" y="500" width="248" height="200" rx="14" fill="#d6d3d1" opacity="0.35" />
+            <path
+              d="M 36 520 L 36 680 L 220 680 L 220 580 L 300 580 L 300 520 Z"
+              fill="url(#marbleBar)"
+              stroke="#a8a29e"
+              stroke-width="1.5"
+              filter="url(#softShadow)"
+            />
+            <text x="52" y="544" fill="#5c4528" font-size="11" font-weight="700" letter-spacing="2">BARRA</text>
+            @for (stool of barStools; track stool) {
+              <circle [attr.cx]="278" [attr.cy]="stool" r="10" fill="#5c4030" stroke="#a67c38" stroke-width="3" />
+            }
+          </g>
+
+          <!-- Zona salón (alineada a la grilla de mesas) -->
+          @if (salonZone; as zone) {
+            <rect
+              [attr.x]="zone.x"
+              [attr.y]="zone.y"
+              [attr.width]="zone.w"
+              [attr.height]="zone.h"
+              rx="18"
+              fill="#fff"
+              fill-opacity="0.28"
+              stroke="#dec79e"
+              stroke-width="1"
+              stroke-dasharray="6 4"
+            />
+            <text [attr.x]="zone.labelX" [attr.y]="zone.labelY" fill="#7f674c" font-size="11" font-weight="700" letter-spacing="2">
+              SALÓN PRINCIPAL
+            </text>
+          }
+
+          <!-- Jardineras entre filas -->
+          @for (div of rowDividers; track div.y) {
+            <rect [attr.x]="salonZone.x + 4" [attr.y]="div.y" [attr.width]="salonZone.w - 8" height="16" rx="4" fill="#6b4f2a" filter="url(#softShadow)" />
+            <rect [attr.x]="salonZone.x + 8" [attr.y]="div.y + 4" [attr.width]="salonZone.w - 16" height="8" rx="3" fill="#5f8f48" />
+          }
+
+          <!-- Árboles esquina (fuera del salón) -->
+          @for (tree of decorTrees; track tree.x + '-' + tree.y) {
+            <g [attr.transform]="'translate(' + tree.x + ',' + tree.y + ') scale(' + tree.scale + ')'">
+              <rect x="0" y="16" width="14" height="12" rx="2" fill="#8b6914" />
+              <circle cx="7" cy="10" r="14" fill="#4d8a3a" />
+              <circle cx="2" cy="6" r="8" fill="#6d9a52" />
+              <circle cx="12" cy="7" r="7" fill="#5a8545" />
+            </g>
+          }
+
+          <!-- Entrada -->
+          <g>
+            <rect x="960" y="280" width="100" height="100" rx="12" fill="#fafaf9" stroke="#dec79e" stroke-width="1.5" />
+            <text x="978" y="308" fill="#7f674c" font-size="11" font-weight="700" letter-spacing="2">ENTRADA</text>
+            <path d="M 990 340 L 1028 340 L 1016 328 M 1028 340 L 1016 352" fill="none" stroke="#7f674c" stroke-width="2.5" stroke-linecap="round" />
+          </g>
+        </g>
+
+        <!-- Mesas -->
+        @for (mesa of mesas(); track mesa.numero) {
+          @if (estadoColors(mesa.estado); as colors) {
+            <g
+              class="mesa-node"
+              role="button"
+              tabindex="0"
+              [attr.opacity]="mesaOpacity(mesa)"
+              [attr.aria-label]="mesaAriaLabel(mesa)"
+              (click)="onSelect(mesa, $event)"
+              (keydown.enter)="onSelect(mesa, $event)"
+            >
+              <circle
+                class="hit-area"
+                [attr.cx]="mesaCenter(mesa).cx"
+                [attr.cy]="mesaCenter(mesa).cy"
+                [attr.r]="hitRadius(mesa)"
+                fill="transparent"
+              />
+
+              @for (chair of chairPositions(mesa); track $index) {
+                <ellipse [attr.cx]="chair.x" [attr.cy]="chair.y" rx="11" ry="8" fill="url(#chairGrad)" />
+              }
+
+              @if (spot(mesa).forma === 'round') {
+                <circle
+                  [attr.cx]="mesaCenter(mesa).cx"
+                  [attr.cy]="mesaCenter(mesa).cy"
+                  [attr.r]="spot(mesa).w / 2"
+                  [attr.fill]="tableFill(mesa)"
+                  [attr.stroke]="isSelected(mesa) ? '#0d9488' : colors.stroke"
+                  [attr.stroke-width]="mesa.estado === 'cuenta' ? 4 : 3"
+                  filter="url(#softShadow)"
+                />
+              } @else {
+                <rect
+                  [attr.x]="spot(mesa).x"
+                  [attr.y]="spot(mesa).y"
+                  [attr.width]="spot(mesa).w"
+                  [attr.height]="spot(mesa).h"
+                  [attr.rx]="tableRx(mesa)"
+                  [attr.fill]="tableFill(mesa)"
+                  [attr.stroke]="isSelected(mesa) ? '#0d9488' : colors.stroke"
+                  [attr.stroke-width]="mesa.estado === 'cuenta' ? 4 : 3"
+                  filter="url(#softShadow)"
+                />
+              }
+
+              <text
+                [attr.x]="mesaCenter(mesa).cx"
+                [attr.y]="mesaCenter(mesa).cy + 5"
+                fill="#fff"
+                font-size="13"
+                font-weight="700"
+                text-anchor="middle"
+                style="text-shadow: 0 1px 2px rgba(0,0,0,0.4); pointer-events: none"
+              >
+                {{ mesa.capacidad }}
+              </text>
+
+              @if (statusCard(mesa); as card) {
+                <rect
+                  [attr.x]="card.x"
+                  [attr.y]="card.y"
+                  [attr.width]="card.w"
+                  [attr.height]="card.h"
+                  rx="11"
+                  fill="#fffaf2"
+                  [attr.stroke]="isSelected(mesa) ? '#0d9488' : '#dec79e'"
+                  [attr.stroke-width]="isSelected(mesa) ? 2.5 : 1"
+                  filter="url(#cardShadow)"
+                />
+                <text [attr.x]="card.x + card.w / 2" [attr.y]="card.y + 19" fill="#241609" font-size="14" font-weight="700" text-anchor="middle">
+                  M{{ mesa.numero }}
+                </text>
+                <rect
+                  [attr.x]="card.x + 8"
+                  [attr.y]="card.y + 26"
+                  [attr.width]="card.w - 16"
+                  height="18"
+                  rx="9"
+                  [attr.fill]="colors.pill"
+                />
+                <circle [attr.cx]="card.x + 18" [attr.cy]="card.y + 35" r="4" [attr.fill]="colors.dot" />
+                <text
+                  [attr.x]="card.x + card.w / 2 + 2"
+                  [attr.y]="card.y + 39"
+                  [attr.fill]="colors.text"
+                  font-size="9"
+                  font-weight="700"
+                  text-anchor="middle"
+                >
+                  {{ estadoShort(mesa.estado) }}
+                </text>
+              }
+
+              @if (mesa.pedidoTotal && mesa.estado !== 'disponible') {
+                <rect
+                  [attr.x]="mesaCenter(mesa).cx - 38"
+                  [attr.y]="spot(mesa).y + spot(mesa).h + 10"
+                  width="76"
+                  height="22"
+                  rx="11"
+                  fill="#241609"
+                  fill-opacity="0.9"
+                />
+                <text
+                  [attr.x]="mesaCenter(mesa).cx"
+                  [attr.y]="spot(mesa).y + spot(mesa).h + 25"
+                  fill="#fff"
+                  font-size="9"
+                  font-weight="700"
+                  text-anchor="middle"
+                >
+                  {{ formatMoney(mesa.pedidoTotal) }}
+                </text>
+              }
+            </g>
+          }
+        } @empty {
+          <text x="550" y="360" fill="#7f674c" font-size="16" font-weight="700" text-anchor="middle">
+            No hay mesas cargadas — verifica la conexión con el servidor
+          </text>
+        }
+      </svg>
+    </div>
+  </div>
+</div>

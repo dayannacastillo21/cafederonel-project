@@ -1,0 +1,113 @@
+<app-page-header
+  eyebrow="Trazabilidad"
+  title="Kardex"
+  description="Historial de entradas, salidas, ajustes y mermas vinculado a inventario y almacenes."
+/>
+
+<section class="metric-grid">
+  <article class="metric-card green">
+    <span>Movimientos</span>
+    <strong>{{ filteredMovements().length }}</strong>
+    <small>{{ movimientos().length }} registros cargados</small>
+  </article>
+  <article class="metric-card blue">
+    <span>Entradas</span>
+    <strong>{{ totalEntradas() }}</strong>
+    <small>Unidades ingresadas</small>
+  </article>
+  <article class="metric-card amber">
+    <span>Salidas / mermas</span>
+    <strong>{{ totalSalidas() }}</strong>
+    <small>Unidades descontadas</small>
+  </article>
+  <article class="metric-card gray">
+    <span>Stock valorizado</span>
+    <strong>{{ formatMoney(stockValorizado()) }}</strong>
+    <small>Inventario actual</small>
+  </article>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h3>Movimientos de inventario</h3>
+      <span>{{ warehouseLabel() }}</span>
+    </div>
+    <div class="panel-actions">
+      <label class="inline-control">
+        <span>Buscar</span>
+        <input type="search" [value]="searchTerm()" (input)="updateSearch($event)" placeholder="Insumo o referencia" />
+      </label>
+      <label class="inline-control">
+        <span>Tipo</span>
+        <select [value]="selectedType()" (change)="updateType($event)">
+          <option value="todos">Todos</option>
+          <option value="entrada">Entrada</option>
+          <option value="salida">Salida</option>
+          <option value="ajuste">Ajuste</option>
+          <option value="merma">Merma</option>
+        </select>
+      </label>
+      <label class="inline-control">
+        <span>Almacen</span>
+        <select [value]="selectedWarehouse()" (change)="updateWarehouse($event)">
+          <option value="todos">Todos</option>
+          @for (almacen of almacenesCatalogo(); track almacen.id) {
+            <option [value]="almacen.id">{{ almacen.nombre }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="table-message error">{{ errorMessage() }}</div>
+  }
+
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr>
+          @for (column of columns; track column) {
+            <th>{{ column }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (movement of filteredMovements(); track movement.id) {
+          <tr>
+            <td>{{ formatDate(movement.fechaMovimiento) }}</td>
+            <td>
+              <strong>{{ movement.insumo }}</strong>
+              <small>{{ movement.motivo || 'Sin motivo' }}</small>
+            </td>
+            <td>{{ movement.almacen || '—' }}</td>
+            <td>
+              <span
+                class="status-pill"
+                [class.status-ok]="movement.tipo === 'entrada'"
+                [class.status-info]="movement.tipo === 'ajuste'"
+                [class.status-warning]="movement.tipo === 'salida'"
+                [class.status-danger]="movement.tipo === 'merma'"
+              >
+                {{ movement.tipo }}
+              </span>
+            </td>
+            <td>{{ movement.cantidad }}</td>
+            <td>{{ movement.stockAnterior }}</td>
+            <td>{{ movement.stockNuevo }}</td>
+            <td>{{ movement.referencia || 'Sin referencia' }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8">
+              <div class="table-message">
+                {{ loading() ? 'Cargando Kardex desde la base...' : 'No hay movimientos para los filtros actuales.' }}
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

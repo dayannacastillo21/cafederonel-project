@@ -1,0 +1,48 @@
+<app-page-header
+  eyebrow="Administracion"
+  title="Usuarios"
+  description="Gestion de cuentas, roles y estado de acceso al sistema."
+/>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h3>Cuentas del sistema</h3>
+      <span>Roles y accesos</span>
+    </div>
+    <button type="button">Nuevo usuario</button>
+  </div>
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr>
+          @for (column of columns; track column) {
+            <th>{{ column }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.id) {
+          <tr>
+            <td><strong>{{ row.nombre }}</strong></td>
+            <td>{{ row.email }}</td>
+            <td><span class="chip">{{ row.rol }}</span></td>
+            <td>
+              <span class="status-pill" [class.status-ok]="row.activo" [class.status-danger]="!row.activo">
+                {{ row.activo ? 'Activo' : 'Suspendido' }}
+              </span>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4">
+              <div class="table-message">
+                {{ loading() ? 'Cargando usuarios desde la base...' : errorMessage() || 'No hay usuarios registrados.' }}
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

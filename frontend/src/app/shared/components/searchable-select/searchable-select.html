@@ -1,0 +1,45 @@
+<div
+  class="searchable-select"
+  [class.is-open]="open()"
+  [class.is-disabled]="disabled()"
+  [class.is-invalid]="invalid"
+>
+  <button type="button" class="trigger" [disabled]="disabled()" (click)="togglePanel()">
+    <span class="trigger-label" [class.placeholder]="!hasSelection()">{{ displayValue() }}</span>
+    <span class="trigger-icon" aria-hidden="true"></span>
+  </button>
+
+  @if (open()) {
+    <div class="panel">
+      <div class="search-box">
+        <input
+          type="search"
+          [value]="searchTerm()"
+          [placeholder]="searchPlaceholder"
+          (input)="updateSearch($event)"
+          (click)="$event.stopPropagation()"
+        />
+        @if (searchTerm()) {
+          <button type="button" class="clear-search" (click)="clearSearch($event)">×</button>
+        }
+      </div>
+
+      <ul class="options" role="listbox">
+        @for (option of filteredOptions(); track option) {
+          <li>
+            <button
+              type="button"
+              class="option"
+              [class.selected]="option === selectedLabel()"
+              (click)="selectOption(option)"
+            >
+              {{ option }}
+            </button>
+          </li>
+        } @empty {
+          <li class="empty">No hay coincidencias.</li>
+        }
+      </ul>
+    </div>
+  }
+</div>

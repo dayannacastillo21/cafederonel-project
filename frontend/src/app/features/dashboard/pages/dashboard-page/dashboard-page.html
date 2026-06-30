@@ -1,0 +1,92 @@
+<app-page-header
+  eyebrow="Panel principal"
+  title="Dashboard operativo"
+  description="Resumen de productos, stock, ventas y avance funcional del sistema Cafedronel."
+/>
+
+@if (loading()) {
+  <div class="table-message">Cargando datos desde la base...</div>
+}
+
+@if (errorMessage()) {
+  <div class="table-message error">{{ errorMessage() }}</div>
+}
+
+<section class="metric-grid">
+  @for (metric of metrics(); track metric.label) {
+    <article class="metric-card {{ metric.tone }}">
+      <span>{{ metric.label }}</span>
+      <strong>{{ metric.value }}</strong>
+      <small>{{ metric.detail }}</small>
+    </article>
+  }
+</section>
+
+<section class="dashboard-grid">
+  <article class="panel operations-panel">
+    <div class="panel-header">
+      <div>
+        <h3>Resumen por modulo</h3>
+        <span>Datos cargados desde la base</span>
+      </div>
+    </div>
+
+    <div class="module-grid">
+      @for (module of moduleSummaries(); track module.name) {
+        <div class="module-item">
+          <div class="module-head">
+            <strong>{{ module.name }}</strong>
+            <span>{{ module.count }}</span>
+          </div>
+          <p>{{ module.detail }}</p>
+        </div>
+      } @empty {
+        <div class="table-message">Sin datos de modulos cargados.</div>
+      }
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header compact">
+      <div>
+        <h3>Stock sensible</h3>
+        <span>Alertas priorizadas</span>
+      </div>
+    </div>
+    <div class="stock-list">
+      @for (stock of lowStock(); track stock.item) {
+        <div class="stock-item">
+          <div>
+            <strong>{{ stock.item }}</strong>
+            <span>{{ stock.available }} {{ stock.unit }} / minimo {{ stock.minimum }}</span>
+          </div>
+          <div class="progress">
+            <span [style.width.%]="stock.width"></span>
+          </div>
+        </div>
+      } @empty {
+        <div class="table-message">Sin alertas de stock bajo.</div>
+      }
+    </div>
+  </article>
+
+  <article class="panel">
+    <div class="panel-header compact">
+      <div>
+        <h3>Actividad reciente</h3>
+        <span>Eventos del sistema</span>
+      </div>
+    </div>
+    <div class="activity-list">
+      @for (event of activity(); track event.title) {
+        <div class="activity-item">
+          <span class="status-dot {{ event.type }}"></span>
+          <div>
+            <strong>{{ event.title }}</strong>
+            <p>{{ event.detail }}</p>
+          </div>
+        </div>
+      }
+    </div>
+  </article>
+</section>

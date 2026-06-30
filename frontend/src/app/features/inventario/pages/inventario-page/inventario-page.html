@@ -1,0 +1,566 @@
+<app-page-header
+  eyebrow="Stock"
+  title="Inventario"
+  description="Insumos de compra: stock, costo unitario e inversion total por producto (no se venden directo)."
+/>
+
+<section class="summary-strip">
+  <article class="summary-card">
+    <span>Total insumos</span>
+    <strong>{{ loading() ? '...' : rows().length }}</strong>
+    <small>Registros en almacen</small>
+  </article>
+  <article class="summary-card">
+    <span>Activos</span>
+    <strong>{{ loading() ? '...' : activeCount() }}</strong>
+    <small>Disponibles para operacion</small>
+  </article>
+  <article class="summary-card warning">
+    <span>Alertas de stock</span>
+    <strong>{{ lowStockCount() }}</strong>
+    <small>Bajo minimo o critico</small>
+  </article>
+  <article class="summary-card warning clickable" (click)="applyExpiryFilter('30_dias')">
+    <span>Por vencer (30 dias)</span>
+    <strong>{{ expiring30Count() }}</strong>
+    <small>Proximos 30 dias</small>
+  </article>
+  <article class="summary-card warning clickable" (click)="applyExpiryFilter('3_meses')">
+    <span>Por vencer (3 meses)</span>
+    <strong>{{ expiring90Count() }}</strong>
+    <small>Proximos 90 dias</small>
+  </article>
+  <article class="summary-card danger clickable" (click)="applyExpiryFilter('vencido')">
+    <span>Vencidos</span>
+    <strong>{{ expiredCount() }}</strong>
+    <small>Fecha ya pasada</small>
+  </article>
+  <article class="summary-card danger">
+    <span>Stock critico</span>
+    <strong>{{ criticalCount() }}</strong>
+    <small>Atencion inmediata</small>
+  </article>
+  <article class="summary-card featured">
+    <span>Inversion en stock</span>
+    <strong>{{ loading() ? '...' : formatMoney(inventoryValue()) }}</strong>
+    <small>Lo que gastaste por lo que tienes hoy</small>
+  </article>
+</section>
+
+@if (stockAlerts().length) {
+  <section class="alert-strip">
+    <div>
+      <span class="eyebrow-label">Alertas prioritarias</span>
+      <strong>{{ stockAlerts().length }} insumos requieren revision</strong>
+    </div>
+    <div class="alert-list">
+      @for (item of stockAlerts(); track item.id) {
+        <button type="button" class="ghost-button alert-button" (click)="openKardex(item)">
+          {{ item.nombreInsumo }} - {{ estadoStock(item) }}
+        </button>
+      }
+    </div>
+  </section>
+}
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h3>Existencias</h3>
+      <span>{{ inventoryCountLabel() }}. Clic en una fila para ver el Kardex.</span>
+    </div>
+    <div class="panel-actions">
+      <button type="button" (click)="openEditor()">Registrar insumo</button>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <label class="inline-control wide">
+      <span>Buscar</span>
+      <input
+        type="search"
+        [value]="searchTerm()"
+        (input)="updateSearch($event)"
+        placeholder="Codigo, insumo, proveedor o lote"
+      />
+    </label>
+
+    <label class="inline-control">
+      <span>Categoria</span>
+      <select [value]="selectedCategory()" (change)="updateCategoryFilter($event)">
+        <option value="todos">Todas</option>
+        @for (category of categoryOptions(); track category) {
+          <option [value]="category">{{ category }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="inline-control">
+      <span>Estado stock</span>
+      <select [value]="selectedStockStatus()" (change)="updateStockFilter($event)">
+        <option value="todos">Todos</option>
+        <option value="Ok">Ok</option>
+        <option value="Bajo">Bajo</option>
+        <option value="Critico">Critico</option>
+      </select>
+    </label>
+
+    <label class="inline-control">
+      <span>Vencimiento</span>
+      <select [value]="selectedExpiryFilter()" (change)="updateExpiryFilter($event)">
+        <option value="todos">Todos</option>
+        <option value="vencido">Vencidos</option>
+        <option value="30_dias">Por vencer (30 dias)</option>
+        <option value="3_meses">Por vencer (3 meses)</option>
+        <option value="sin_fecha">Sin fecha</option>
+      </select>
+    </label>
+
+    <label class="inline-control">
+      <span>Estado</span>
+      <select [value]="selectedStatus()" (change)="updateStatusFilter($event)">
+        <option value="todos">Todos</option>
+        <option value="activo">Activos</option>
+        <option value="inactivo">Inactivos</option>
+      </select>
+    </label>
+
+    <label class="inline-control">
+      <span>Almacen</span>
+      <select [value]="selectedWarehouse()" (change)="updateWarehouseFilter($event)">
+        <option value="todos">Todos</option>
+        @for (warehouse of almacenesCatalogo(); track warehouse.id) {
+          <option [value]="warehouse.id">{{ warehouse.nombre }}</option>
+        }
+      </select>
+    </label>
+
+    <button type="button" class="ghost-button" (click)="clearAllFilters()">Limpiar</button>
+  </div>
+
+  @if (actionMessage()) {
+    <div class="table-message error panel-message">{{ actionMessage() }}</div>
+  }
+
+  <div class="table-shell inventory-table-shell">
+    <table class="inventory-table">
+      <thead>
+        <tr>
+          <th>Codigo</th>
+          <th>Insumo</th>
+          <th>Existencias</th>
+          <th class="col-hide-laptop">Vencimiento</th>
+          <th>Costos</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of pagedRows(); track row.id) {
+          <tr
+            class="clickable-row"
+            [class.selected-row]="selectedItem()?.id === row.id && modalMode() !== null"
+            (click)="openKardex(row)"
+          >
+            <td class="cell-code">
+              <span class="chip code-chip">{{ row.codigoInsumo }}</span>
+            </td>
+            <td class="cell-insumo">
+              <strong>{{ row.nombreInsumo }}</strong>
+              <div class="insumo-meta">
+                <span>{{ row.categoria }}</span>
+                @if (row.lote) {
+                  <span>Lote {{ row.lote }}</span>
+                }
+                <span class="meta-muted">{{ row.proveedor }}</span>
+                <span class="meta-muted col-hide-laptop-inline">{{ row.almacen || row.ubicacion }}</span>
+              </div>
+            </td>
+            <td class="cell-stock">
+              <div class="stock-qty">
+                {{ row.cantidad }}
+                <span class="unit">{{ row.unidad | unidadLabel }}</span>
+              </div>
+              <div class="stock-meta">
+                <span
+                  class="status-pill compact"
+                  [class.status-ok]="estadoStock(row) === 'Ok'"
+                  [class.status-warning]="estadoStock(row) === 'Bajo'"
+                  [class.status-danger]="estadoStock(row) === 'Critico'"
+                >
+                  {{ estadoStock(row) }}
+                </span>
+                <span class="stock-min">Min. {{ row.stockMinimo }} {{ row.unidad | unidadLabel }}</span>
+              </div>
+            </td>
+            <td class="col-hide-laptop cell-expiry">
+              <span class="expiry-date">{{ formatVencimiento(row.fechaVencimiento) }}</span>
+              <span
+                class="status-pill compact"
+                [class.status-ok]="estadoVencimiento(row) === 'ok'"
+                [class.status-warning]="estadoVencimiento(row) === 'por_vencer' || estadoVencimiento(row) === 'sin_fecha'"
+                [class.status-danger]="estadoVencimiento(row) === 'vencido'"
+              >
+                {{ vencimientoLabel(row) }}
+              </span>
+            </td>
+            <td class="cell-cost">
+              <div class="cost-total">{{ formatMoney(stockValue(row)) }}</div>
+              <div class="cost-unit">{{ formatMoney(row.precioUnitario) }} / {{ row.unidad | unidadLabel }}</div>
+            </td>
+            <td class="cell-status">
+              <span class="status-pill compact" [class.status-ok]="isActive(row)" [class.status-warning]="!isActive(row)">
+                {{ isActive(row) ? 'Activo' : 'Inactivo' }}
+              </span>
+            </td>
+            <td class="cell-actions">
+              <div class="compact-actions">
+                <button type="button" class="ghost-button" (click)="$event.stopPropagation(); openKardex(row)">
+                  Kardex
+                </button>
+                <button type="button" class="ghost-button" (click)="$event.stopPropagation(); openEditor(row)">
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button subtle-action"
+                  [disabled]="isActionLoading(row.id)"
+                  [title]="isActive(row) ? 'Desactivar insumo' : 'Activar insumo'"
+                  (click)="toggleActivo(row, $event)"
+                >
+                  {{ isActive(row) ? 'Pausar' : 'Activar' }}
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button danger-button subtle-action"
+                  [disabled]="isActionLoading(row.id)"
+                  title="Eliminar insumo"
+                  (click)="deleteItem(row, $event)"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7">
+              <div class="table-message" [class.error]="errorMessage()">
+                {{ loading() ? 'Cargando inventario desde la base...' : errorMessage() || 'No hay insumos para los filtros actuales.' }}
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  @if (filteredRows().length) {
+    <div class="pagination-bar">
+      <span>Mostrando {{ pageStart() }}-{{ pageEnd() }} de {{ filteredRows().length }} insumos</span>
+      <div class="page-controls">
+        <button type="button" class="ghost-button" [disabled]="displayPage() === 1" (click)="previousPage()">
+          Anterior
+        </button>
+        @for (page of pageNumbers(); track page) {
+          <button
+            type="button"
+            class="ghost-button page-button"
+            [class.active]="displayPage() === page"
+            (click)="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        }
+        <button type="button" class="ghost-button" [disabled]="displayPage() === totalPages()" (click)="nextPage()">
+          Siguiente
+        </button>
+      </div>
+    </div>
+  }
+</section>
+
+@if (modalMode() === 'kardex') {
+  @if (selectedItem(); as item) {
+    <div class="modal-backdrop" (click)="closeModal()">
+      <section class="floating-card kardex-modal" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div>
+            <span class="eyebrow-label">Kardex de insumo</span>
+            <h3>{{ item.nombreInsumo }}</h3>
+            <p>{{ item.codigoInsumo }} - {{ item.categoria }} - {{ item.proveedor }}</p>
+          </div>
+          <button type="button" class="ghost-button close-button" (click)="closeModal()">Cerrar</button>
+        </header>
+
+        <dl class="detail-grid">
+          <div>
+            <dt>Stock real</dt>
+            <dd>{{ item.cantidad }} {{ item.unidad | unidadLabel }}</dd>
+          </div>
+          <div>
+            <dt>Stock minimo</dt>
+            <dd>{{ item.stockMinimo }} {{ item.unidad | unidadLabel }}</dd>
+          </div>
+          <div>
+            <dt>Costo de compra</dt>
+            <dd>{{ formatMoney(item.precioUnitario) }} / {{ item.unidad | unidadLabel }}</dd>
+          </div>
+          <div>
+            <dt>Inversion en stock</dt>
+            <dd>{{ formatMoney(stockValue(item)) }}</dd>
+          </div>
+          <div>
+            <dt>Almacen</dt>
+            <dd>{{ item.almacen || item.ubicacion }}</dd>
+          </div>
+          <div>
+            <dt>Vencimiento</dt>
+            <dd>
+              {{ formatVencimiento(item.fechaVencimiento) }}
+              <span class="inline-pill">{{ vencimientoLabel(item) }}</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Lote</dt>
+            <dd>{{ item.lote || 'Sin lote' }}</dd>
+          </div>
+          <div>
+            <dt>Estado</dt>
+            <dd>{{ isActive(item) ? 'Activo' : 'Inactivo' }}</dd>
+          </div>
+          <div>
+            <dt>Cobertura</dt>
+            <dd>{{ stockCoverage(item) }}%</dd>
+          </div>
+        </dl>
+
+        @if (isActive(item)) {
+        <div class="movement-form">
+          <label>
+            <span>Tipo</span>
+            <select #movementType>
+              <option value="entrada">Entrada</option>
+              <option value="salida">Salida</option>
+              <option value="ajuste">Ajuste</option>
+              <option value="merma">Merma</option>
+            </select>
+          </label>
+          <label>
+            <span>Cantidad</span>
+            <input #movementQty type="number" min="0" placeholder="0" />
+          </label>
+          <label>
+            <span>Costo</span>
+            <input #movementCost type="number" min="0" step="0.01" placeholder="Opcional" />
+          </label>
+          <label>
+            <span>Motivo</span>
+            <input #movementReason type="text" placeholder="Compra, venta, ajuste..." />
+          </label>
+          <label>
+            <span>Referencia</span>
+            <input #movementRef type="text" placeholder="Factura, ticket..." />
+          </label>
+          <button
+            type="button"
+            [disabled]="movementSubmitting()"
+            (click)="registrarMovimiento(movementType.value, movementQty.value, movementReason.value, movementRef.value, movementCost.value)"
+          >
+            {{ movementSubmitting() ? 'Registrando...' : 'Registrar movimiento' }}
+          </button>
+        </div>
+
+        @if (movementError()) {
+          <div class="table-message error">{{ movementError() }}</div>
+        }
+        } @else {
+          <div class="table-message">Este insumo esta inactivo. Activalo para registrar movimientos.</div>
+        }
+
+        <div class="table-shell">
+          <table>
+            <thead>
+              <tr>
+                @for (column of movementColumns; track column) {
+                  <th>{{ column }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (movement of movimientos(); track movement.id) {
+                <tr>
+                  <td>{{ formatDate(movement.fechaMovimiento) }}</td>
+                  <td><span class="status-pill status-info">{{ movement.tipo }}</span></td>
+                  <td>{{ movement.cantidad }}</td>
+                  <td>{{ movement.stockAnterior }}</td>
+                  <td>{{ movement.stockNuevo }}</td>
+                  <td>{{ movement.motivo || 'Sin motivo' }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6">
+                    <div class="table-message">
+                      {{ movementLoading() ? 'Cargando Kardex...' : 'Sin movimientos registrados.' }}
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <footer class="modal-actions">
+          <button type="button" class="ghost-button" (click)="openEditor(item)">Editar insumo / vencimiento</button>
+          <button
+            type="button"
+            class="ghost-button"
+            [disabled]="isActionLoading(item.id)"
+            (click)="toggleActivo(item, $event)"
+          >
+            {{ isActive(item) ? 'Desactivar' : 'Activar' }}
+          </button>
+          <button
+            type="button"
+            class="ghost-button danger-button"
+            [disabled]="isActionLoading(item.id)"
+            (click)="deleteItem(item, $event)"
+          >
+            Eliminar
+          </button>
+          <button type="button" (click)="closeModal()">Listo</button>
+        </footer>
+      </section>
+    </div>
+  }
+}
+
+@if (modalMode() === 'edit' || modalMode() === 'create') {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <form class="floating-card editor-modal" [formGroup]="itemForm" (ngSubmit)="saveItem()" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="eyebrow-label">{{ modalMode() === 'edit' ? 'Editar insumo' : 'Registrar insumo' }}</span>
+          <h3>{{ modalMode() === 'edit' ? selectedItem()?.nombreInsumo : 'Nuevo insumo' }}</h3>
+          <p>Estos datos alimentan el inventario, alertas y Kardex.</p>
+        </div>
+        <button type="button" class="ghost-button close-button" (click)="closeModal()">Cerrar</button>
+      </header>
+
+      <div class="form-grid">
+        <label>
+          <span>Nombre</span>
+          <input type="text" formControlName="nombreInsumo" placeholder="Ej. Cafe en grano" />
+          @if (fieldInvalid('nombreInsumo')) {
+            <small>Nombre obligatorio.</small>
+          }
+        </label>
+
+        <label>
+          <span>Codigo</span>
+          <input type="text" formControlName="codigoInsumo" placeholder="Ej. CAF-INS-001" />
+        </label>
+
+        <label>
+          <span>Categoria</span>
+          <select formControlName="categoria">
+            @for (category of categoryOptions(); track category) {
+              <option [value]="category">{{ category }}</option>
+            }
+          </select>
+          @if (fieldInvalid('categoria')) {
+            <small>Categoria obligatoria.</small>
+          }
+        </label>
+
+        <label>
+          <span>Proveedor</span>
+          <select formControlName="proveedor">
+            @for (proveedor of proveedoresActivos(); track proveedor.id) {
+              <option [value]="proveedor.nombre">{{ proveedor.nombre }}</option>
+            }
+          </select>
+          @if (fieldInvalid('proveedor')) {
+            <small>Proveedor obligatorio.</small>
+          }
+        </label>
+
+        <label>
+          <span>Almacen</span>
+          <select formControlName="almacenId">
+            @for (almacen of almacenesCatalogo(); track almacen.id) {
+              <option [value]="almacen.id">{{ almacen.nombre }}</option>
+            }
+          </select>
+        </label>
+
+        <label>
+          <span>Ubicacion</span>
+          <input type="text" formControlName="ubicacion" placeholder="Estante, barra, cocina..." />
+        </label>
+
+        <label>
+          <span>Stock actual</span>
+          <input type="number" min="0" formControlName="cantidad" />
+          @if (fieldInvalid('cantidad')) {
+            <small>Cantidad valida obligatoria.</small>
+          }
+        </label>
+
+        <label>
+          <span>Unidad de medida</span>
+          <select formControlName="unidad">
+            @for (option of unidadOptions; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+          <small class="field-hint">Vasos y servilletas: usa Unidades. El costo es por cada pieza.</small>
+          @if (fieldInvalid('unidad')) {
+            <small>Unidad obligatoria.</small>
+          }
+        </label>
+
+        <label>
+          <span>Lote</span>
+          <input type="text" formControlName="lote" placeholder="Ej. L-CAF-2606-A" />
+        </label>
+
+        <label>
+          <span>Fecha de vencimiento</span>
+          <input type="date" formControlName="fechaVencimiento" />
+          <small class="field-hint">Editable. Indica hasta cuando puedes usar este lote.</small>
+        </label>
+
+        <label>
+          <span>Stock minimo</span>
+          <input type="number" min="0" formControlName="stockMinimo" />
+          @if (fieldInvalid('stockMinimo')) {
+            <small>Stock minimo valido obligatorio.</small>
+          }
+        </label>
+
+        <label>
+          <span>Costo de compra (por unidad)</span>
+          <input type="number" min="0" step="0.01" formControlName="precioUnitario" />
+          @if (fieldInvalid('precioUnitario')) {
+            <small>Costo valido obligatorio.</small>
+          }
+        </label>
+
+        <label class="checkbox-line span-2">
+          <input type="checkbox" formControlName="activo" />
+          <span>Insumo activo en almacen</span>
+        </label>
+      </div>
+
+      @if (formMessage()) {
+        <div class="form-message">{{ formMessage() }}</div>
+      }
+
+      <footer class="modal-actions">
+        <button type="button" class="ghost-button" (click)="closeModal()">Cancelar</button>
+        <button type="submit" [disabled]="savingItem()">{{ savingItem() ? 'Guardando...' : 'Guardar insumo' }}</button>
+      </footer>
+    </form>
+  </div>
+}

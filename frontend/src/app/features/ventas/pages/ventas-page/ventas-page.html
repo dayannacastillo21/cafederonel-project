@@ -1,0 +1,47 @@
+<app-page-header
+  eyebrow="Caja"
+  title="Ventas"
+  description="Registro de ventas y consulta por usuario o estado."
+/>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <h3>Ventas registradas</h3>
+      <span>Movimiento del dia</span>
+    </div>
+    <div class="panel-actions">
+      <button type="button" class="ghost-button">Exportar</button>
+      <button type="button">Nueva venta</button>
+    </div>
+  </div>
+  <div class="table-shell">
+    <table>
+      <thead>
+        <tr>
+          @for (column of columns; track column) {
+            <th>{{ column }}</th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows(); track row.id) {
+          <tr>
+            <td>{{ row.usuario }}</td>
+            <td><strong>{{ row.producto }}</strong></td>
+            <td>{{ row.cantidad }}</td>
+            <td class="amount">{{ formatMoney(row.total) }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4">
+              <div class="table-message">
+                {{ loading() ? 'Cargando ventas desde la base...' : errorMessage() || 'No hay ventas registradas.' }}
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

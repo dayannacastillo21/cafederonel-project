@@ -1,0 +1,240 @@
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+  padding: 24px 18px;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(189, 132, 41, 0.24), transparent 260px),
+    linear-gradient(180deg, var(--color-sidebar), var(--color-sidebar-2));
+  color: #fff4df;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 64px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--color-sidebar-line);
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 1px solid rgba(209, 154, 58, 0.58);
+  border-radius: 8px;
+  color: #ffd98a;
+  background:
+    linear-gradient(145deg, rgba(255, 217, 138, 0.12), rgba(115, 67, 16, 0.34)),
+    #120b05;
+  font-size: 15px;
+  font-weight: 900;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+}
+
+.brand strong,
+.brand small {
+  display: block;
+}
+
+.brand strong {
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.brand small {
+  margin-top: 3px;
+  color: #e8c988;
+  font-size: 12px;
+}
+
+.sidebar-section {
+  margin: 22px 8px 10px;
+  color: #b98b43;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.nav-list {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #f4dfb6;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  border-color: rgba(209, 154, 58, 0.48);
+  background: rgba(209, 154, 58, 0.18);
+  color: #fffaf2;
+}
+
+.nav-link.active {
+  box-shadow: inset 3px 0 0 #d19a3a;
+}
+
+.nav-link.active .nav-icon {
+  background: linear-gradient(180deg, #d19a3a, var(--color-primary));
+  color: #120b05;
+}
+
+.nav-icon {
+  display: grid;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(209, 154, 58, 0.2);
+  border-radius: 7px;
+  background: rgba(255, 250, 242, 0.08);
+}
+
+.nav-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-card {
+  display: grid;
+  gap: 5px;
+  margin-top: auto;
+  border: 1px solid rgba(209, 154, 58, 0.32);
+  border-radius: 8px;
+  padding: 14px;
+  color: #fff4df;
+  background:
+    linear-gradient(180deg, rgba(189, 132, 41, 0.18), rgba(255, 250, 242, 0.05)),
+    rgba(255, 250, 242, 0.06);
+}
+
+.sidebar-card .card-label,
+.sidebar-card p {
+  color: #e8c988;
+}
+
+.sidebar-card .card-label {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.sidebar-card strong,
+.sidebar-card p {
+  margin: 0;
+}
+
+.sidebar-card strong {
+  color: #fffaf2;
+  font-size: 15px;
+}
+
+.sidebar-card p {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+@media (max-width: 1440px) {
+  .sidebar {
+    padding: 18px 14px;
+  }
+
+  .brand {
+    gap: 10px;
+    min-height: 56px;
+  }
+
+  .brand-mark {
+    width: 46px;
+    height: 46px;
+    font-size: 14px;
+  }
+
+  .brand strong {
+    font-size: 16px;
+  }
+
+  .nav-link {
+    min-height: 40px;
+    padding: 0 8px;
+    gap: 8px;
+  }
+
+  .sidebar-card {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: static;
+    max-width: 100vw;
+    min-height: auto;
+    overflow: hidden;
+    padding: 14px 16px;
+  }
+
+  .brand {
+    min-height: 54px;
+    padding-bottom: 12px;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .sidebar-section,
+  .sidebar-card {
+    display: none;
+  }
+
+  .nav-list {
+    width: 100%;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .nav-link {
+    flex: 0 0 auto;
+    max-width: 160px;
+  }
+
+  .nav-label {
+    white-space: nowrap;
+  }
+}

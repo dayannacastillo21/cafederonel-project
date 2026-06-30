@@ -1,0 +1,61 @@
+<section class="login-panel">
+  <div class="login-copy">
+    <div class="brand-lockup">
+      <span>CF</span>
+      <div>
+        <strong>Cafedronel</strong>
+        <small>Inventario seguro</small>
+      </div>
+    </div>
+
+    <div class="copy-main">
+      <p class="eyebrow">Acceso administrativo</p>
+      <h1>Gestiona stock, ventas y usuarios desde un solo panel.</h1>
+      <p>Control operativo preparado para integrarse con Spring Boot, JWT y rutas protegidas.</p>
+    </div>
+
+    <div class="trust-row">
+      <span>Roles</span>
+      <span>Sesion segura</span>
+      <span>Acceso privado</span>
+    </div>
+  </div>
+
+  <form class="login-form" [formGroup]="loginForm" (ngSubmit)="submit()">
+    <div class="form-heading">
+      <h2>Iniciar sesion</h2>
+      <p>Usa una cuenta autorizada del sistema.</p>
+    </div>
+
+    <label>
+      <span>Correo</span>
+      <input type="email" formControlName="email" autocomplete="email" placeholder="admin@cafedronel.com" />
+    </label>
+    @if (hasError('email', 'required')) {
+      <small>El correo es obligatorio.</small>
+    }
+    @if (hasError('email', 'email')) {
+      <small>Ingresa un correo valido.</small>
+    }
+
+    <label>
+      <span>Contrasena</span>
+      <input type="password" formControlName="password" autocomplete="current-password" placeholder="password" />
+    </label>
+    @if (hasError('password', 'required')) {
+      <small>La contrasena es obligatoria.</small>
+    }
+    @if (hasError('password', 'minlength')) {
+      <small>Debe tener al menos 4 caracteres.</small>
+    }
+
+    @if (errorMessage) {
+      <small class="form-error">{{ errorMessage }}</small>
+    }
+
+    <button type="submit" [disabled]="loading">
+      {{ loading ? 'Validando...' : 'Entrar al sistema' }}
+    </button>
+    <a routerLink="/dashboard">Volver al panel</a>
+  </form>
+</section>
