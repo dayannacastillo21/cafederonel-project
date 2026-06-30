@@ -1,0 +1,2 @@
+-- V0: Inicio del esquema (sin objetos; punto de partida de migraciones)
+-- Las tablas se crean en V1..V6; los datos demo en V7.

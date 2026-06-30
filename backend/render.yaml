@@ -1,0 +1,51 @@
+# Blueprint Render: New → Blueprint → conectar repo
+# Las variables sensibles (JWT) conviene generarlas o editarlas en el panel.
+# Documentación: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: inventario-db
+    plan: free
+    databaseName: inventario_backenddatabase
+
+services:
+  - type: web
+    name: backend-cafedronel
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/estado
+    envVars:
+      - key: JPA_DDL_AUTO
+        value: validate
+      - key: JPA_SHOW_SQL
+        value: "false"
+      # Render inyecta host, puerto, nombre, usuario y password desde la BD
+      - key: DB_HOST
+        fromDatabase:
+          name: inventario-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: inventario-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: inventario-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: inventario-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: inventario-db
+          property: password
+      # Spring Boot necesita URL JDBC (no postgres://)
+      - key: DB_URL
+        value: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION_MS
+        value: "86400000"
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://TU-FRONTEND.onrender.com
