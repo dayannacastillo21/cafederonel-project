@@ -5,17 +5,18 @@ export type NavigationItem = {
   label: string;
   path: string;
   icon: NavigationIcon;
-  roles?: SessionUser['role'][];
+  roles: SessionUser['role'][];
 };
 
 export const NAVIGATION_ITEMS: NavigationItem[] = [
-  { label: 'Panel', path: '/dashboard', icon: 'dashboard' },
-  { label: 'Productos', path: '/productos', icon: 'productos' },
-  { label: 'Inventario', path: '/inventario', icon: 'inventario' },
-  { label: 'Kardex', path: '/kardex', icon: 'kardex' },
-  { label: 'Proveedores', path: '/proveedores', icon: 'proveedores' },
-  { label: 'Pedidos', path: '/pedidos', icon: 'pedidos' },
-  { label: 'Punto de venta', path: '/ventas', icon: 'ventas', roles: ['ADMIN', 'CAJERO'] },
-  { label: 'Mapa de la cafetería', path: '/salon', icon: 'salon', roles: ['ADMIN', 'CAJERO'] },
+  { label: 'Dashboard', path: '/dashboard', icon: 'dashboard', roles: ['ADMIN', 'CAJERO', 'INVENTARIO', 'CONTADOR'] },
+  { label: 'Productos', path: '/productos', icon: 'productos', roles: ['ADMIN', 'CAJERO', 'INVENTARIO'] },
+  { label: 'Inventario', path: '/inventario', icon: 'inventario', roles: ['ADMIN', 'INVENTARIO'] },
+  { label: 'Kardex', path: '/kardex', icon: 'kardex', roles: ['ADMIN', 'INVENTARIO'] },
+  { label: 'Proveedores', path: '/proveedores', icon: 'proveedores', roles: ['ADMIN', 'INVENTARIO'] },
+  { label: 'Pedidos', path: '/pedidos', icon: 'pedidos', roles: ['ADMIN', 'CAJERO', 'CONTADOR'] },
+  { label: 'POS', path: '/pos', icon: 'pos', roles: ['ADMIN', 'CAJERO'] },
+  { label: 'Ventas', path: '/ventas', icon: 'ventas', roles: ['ADMIN', 'CAJERO', 'CONTADOR'] },
   { label: 'Usuarios', path: '/usuarios', icon: 'usuarios', roles: ['ADMIN'] },
+  { label: 'Reportes', path: '/reportes', icon: 'reportes', roles: ['ADMIN', 'CONTADOR'] },
 ];

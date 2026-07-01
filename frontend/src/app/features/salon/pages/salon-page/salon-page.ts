@@ -137,7 +137,7 @@ export class SalonPage {
   }
 
   protected posLink(): string[] {
-    return ['/ventas'];
+    return ['/pos'];
   }
 
   protected posQuery(mesa: SalonMesa): { mesa: number } {

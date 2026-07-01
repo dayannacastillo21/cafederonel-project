@@ -7,8 +7,9 @@ export type NavigationIcon =
   | 'kardex'
   | 'proveedores'
   | 'pedidos'
+  | 'pos'
   | 'ventas'
-  | 'salon'
-  | 'usuarios';
+  | 'usuarios'
+  | 'reportes';
 
 export type { NavigationItem } from './app-navigation';

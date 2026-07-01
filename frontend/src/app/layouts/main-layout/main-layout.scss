@@ -8,7 +8,7 @@
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
   background:
-    linear-gradient(90deg, var(--color-sidebar) 0 var(--sidebar-width), transparent var(--sidebar-width)),
+    linear-gradient(90deg, #141a20 0 var(--sidebar-width), transparent var(--sidebar-width)),
     radial-gradient(circle at top right, rgba(189, 132, 41, 0.18), transparent 360px),
     var(--color-page);
 }
