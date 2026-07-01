@@ -1,8 +1,25 @@
 <app-page-header
   eyebrow="Administracion"
   title="Usuarios"
-  description="Gestion de cuentas, roles y estado de acceso al sistema."
+  description="Solo el administrador puede crear cuentas, cambiar roles, inactivar o eliminar usuarios."
 />
+
+@if (actionMessage()) {
+  <div class="feedback-banner ok">{{ actionMessage() }}</div>
+}
+
+<section class="summary-strip">
+  <article class="summary-card">
+    <span>Cuentas</span>
+    <strong>{{ rows().length }}</strong>
+    <small>Usuarios registrados</small>
+  </article>
+  <article class="summary-card info">
+    <span>Activas</span>
+    <strong>{{ activeCount() }}</strong>
+    <small>Con acceso al sistema</small>
+  </article>
+</section>
 
 <section class="panel">
   <div class="panel-header">
@@ -10,7 +27,7 @@
       <h3>Cuentas del sistema</h3>
       <span>Roles y accesos</span>
     </div>
-    <button type="button">Nuevo usuario</button>
+    <button type="button" (click)="openCreate()">Nuevo usuario</button>
   </div>
   <div class="table-shell">
     <table>
@@ -24,18 +41,51 @@
       <tbody>
         @for (row of rows(); track row.id) {
           <tr>
-            <td><strong>{{ row.nombre }}</strong></td>
+            <td>
+              <strong>{{ row.nombre }}</strong>
+              @if (isCurrentUser(row)) {
+                <small class="you-badge">Tu cuenta</small>
+              }
+            </td>
             <td>{{ row.email }}</td>
-            <td><span class="chip">{{ row.rol }}</span></td>
+            <td><span class="chip">{{ roleLabel(row.rol) }}</span></td>
             <td>
               <span class="status-pill" [class.status-ok]="row.activo" [class.status-danger]="!row.activo">
-                {{ row.activo ? 'Activo' : 'Suspendido' }}
+                {{ row.activo ? 'Activo' : 'Inactivo' }}
               </span>
+            </td>
+            <td>
+              <div class="row-actions">
+                <button
+                  type="button"
+                  class="ghost-button compact"
+                  [disabled]="isActionLoading(row.id)"
+                  (click)="openEdit(row)"
+                >
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button compact"
+                  [disabled]="isActionLoading(row.id) || (isCurrentUser(row) && row.activo)"
+                  (click)="toggleActivo(row)"
+                >
+                  {{ row.activo ? 'Inactivar' : 'Reactivar' }}
+                </button>
+                <button
+                  type="button"
+                  class="ghost-button compact danger-button"
+                  [disabled]="isActionLoading(row.id) || isCurrentUser(row)"
+                  (click)="deleteUsuario(row)"
+                >
+                  Eliminar
+                </button>
+              </div>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="4">
+            <td colspan="5">
               <div class="table-message">
                 {{ loading() ? 'Cargando usuarios desde la base...' : errorMessage() || 'No hay usuarios registrados.' }}
               </div>
@@ -46,3 +96,70 @@
     </table>
   </div>
 </section>
+
+@if (modalMode(); as mode) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <section class="floating-card user-modal" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <div>
+          <span class="eyebrow-label">{{ mode === 'create' ? 'Nueva cuenta' : 'Editar cuenta' }}</span>
+          <h3>{{ mode === 'create' ? 'Crear usuario' : editingUser()?.nombre }}</h3>
+        </div>
+        <button type="button" class="ghost-button" (click)="closeModal()">Cerrar</button>
+      </header>
+
+      <form class="user-form" [formGroup]="userForm" (ngSubmit)="saveUsuario()">
+        <label>
+          <span>Nombre</span>
+          <input type="text" formControlName="nombre" placeholder="Nombre completo" />
+          @if (fieldInvalid('nombre')) {
+            <small class="field-error">El nombre es obligatorio.</small>
+          }
+        </label>
+
+        <label>
+          <span>Correo</span>
+          <input type="email" formControlName="email" placeholder="usuario@cafedronel.com" />
+          @if (fieldInvalid('email')) {
+            <small class="field-error">Ingresa un correo valido.</small>
+          }
+        </label>
+
+        <label>
+          <span>{{ isCreateMode() ? 'Contrasena' : 'Nueva contrasena (opcional)' }}</span>
+          <input type="password" formControlName="password" [placeholder]="isCreateMode() ? 'Minimo 4 caracteres' : 'Dejar vacio para no cambiar'" />
+          @if (fieldInvalid('password')) {
+            <small class="field-error">La contrasena debe tener al menos 4 caracteres.</small>
+          }
+        </label>
+
+        <label>
+          <span>Rol</span>
+          <select formControlName="rol">
+            @for (rol of roles; track rol) {
+              <option [value]="rol">{{ roleLabel(rol) }}</option>
+            }
+          </select>
+        </label>
+
+        @if (!isCreateMode()) {
+          <label class="checkbox-row">
+            <input type="checkbox" formControlName="activo" [disabled]="isCurrentUser(editingUser()!)" />
+            <span>Cuenta activa (puede iniciar sesion)</span>
+          </label>
+        }
+
+        @if (formMessage()) {
+          <div class="form-banner error">{{ formMessage() }}</div>
+        }
+
+        <footer class="modal-actions">
+          <button type="button" class="ghost-button" (click)="closeModal()" [disabled]="saving()">Cancelar</button>
+          <button type="submit" [disabled]="saving()">
+            {{ saving() ? 'Guardando...' : mode === 'create' ? 'Crear usuario' : 'Guardar cambios' }}
+          </button>
+        </footer>
+      </form>
+    </section>
+  </div>
+}

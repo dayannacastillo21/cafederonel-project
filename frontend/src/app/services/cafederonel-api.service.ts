@@ -14,8 +14,9 @@ import { CajaAperturaPayload, CajaCierrePayload, CajaSesion } from '../models/ca
 import { Producto, ProductoPayload } from '../models/producto.model';
 import { ProductoStockDisponible } from '../models/producto-stock.model';
 import { Proveedor, ProveedorPayload } from '../models/proveedor.model';
+import { ResumenFinanciero } from '../models/reporte.model';
 import { Almacen, CategoriaProducto } from '../models/catalogo.model';
-import { Usuario } from '../models/usuario.model';
+import { Usuario, UsuarioCreatePayload, UsuarioUpdatePayload } from '../models/usuario.model';
 import { Venta } from '../models/venta.model';
 import { SalonMesa } from '../models/salon.model';
 
@@ -162,6 +163,22 @@ export class CafederonelApiService {
 
   usuarios() {
     return this.http.get<Usuario[]>(`${API_BASE_URL}/usuarios`);
+  }
+
+  crearUsuario(payload: UsuarioCreatePayload) {
+    return this.http.post<Usuario>(`${API_BASE_URL}/usuarios`, payload);
+  }
+
+  actualizarUsuario(id: number, payload: UsuarioUpdatePayload) {
+    return this.http.put<Usuario>(`${API_BASE_URL}/usuarios/${id}`, payload);
+  }
+
+  eliminarUsuario(id: number) {
+    return this.http.delete<void>(`${API_BASE_URL}/usuarios/${id}`);
+  }
+
+  resumenFinanciero() {
+    return this.http.get<ResumenFinanciero>(`${API_BASE_URL}/reportes/resumen-financiero`);
   }
 
   almacenes() {
