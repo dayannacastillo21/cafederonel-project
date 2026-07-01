@@ -2,10 +2,14 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
+import { AuthService } from '../../../../core/auth/auth.service';
+import { canExportInventarioReports } from '../../../../core/auth/export-access.util';
 import { PageHeader } from '../../../../shared/components/page-header/page-header';
 import { SearchableSelectComponent } from '../../../../shared/components/searchable-select/searchable-select';
 import { coerceActivo } from '../../../../core/utils/boolean.util';
 import { onProductImageError, productImageUrl } from '../../../../core/utils/product-image.util';
+import { downloadPdfTable } from '../../../../core/utils/pdf-export.util';
+import { downloadStyledExcel, formatExcelGeneratedAt, timestampForFilename } from '../../../../core/utils/excel-export.util';
 import { CafederonelApiService } from '../../../../services/cafederonel-api.service';
 import { CatalogCacheService } from '../../../../services/catalog-cache.service';
 import { Producto, ProductoPayload } from '../../../../models/producto.model';
@@ -27,8 +31,23 @@ export class ProductosPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly pageSize = 10;
   private readonly api = inject(CafederonelApiService);
+  private readonly auth = inject(AuthService);
 
   protected readonly columns = ['SKU', 'Producto', 'Codigo', 'Categoria', 'Precio', 'Margen', 'Estado', 'Acciones'];
+  protected readonly canManageProducts = computed(() => {
+    const role = this.auth.session()?.role;
+    return role === 'ADMIN' || role === 'INVENTARIO';
+  });
+  protected readonly canDeleteProducts = computed(() => this.auth.session()?.role === 'ADMIN');
+  protected readonly canExportPdf = computed(() => this.auth.session()?.role === 'ADMIN');
+  protected readonly canExportExcel = computed(() =>
+    canExportInventarioReports(this.auth.session()?.role),
+  );
+  protected readonly pageDescription = computed(() =>
+    this.canManageProducts()
+      ? 'Modulo para listar, crear y editar productos del catalogo Cafedronel.'
+      : 'Catalogo de productos disponible para ventas y consulta operativa.',
+  );
 
   protected readonly productImageUrl = productImageUrl;
   protected readonly onProductImageError = onProductImageError;
@@ -255,6 +274,10 @@ export class ProductosPage implements OnInit {
   }
 
   protected openEditor(producto?: Producto): void {
+    if (!this.canManageProducts()) {
+      return;
+    }
+
     this.ensureCategoriasLoaded();
 
     this.selectedProduct.set(producto ?? null);
@@ -284,6 +307,10 @@ export class ProductosPage implements OnInit {
 
   protected toggleActivo(producto: Producto, event: Event): void {
     event.stopPropagation();
+    if (!this.canManageProducts()) {
+      return;
+    }
+
     const nextActivo = !this.isActive(producto);
     const previous = { ...producto };
 
@@ -312,6 +339,10 @@ export class ProductosPage implements OnInit {
 
   protected deleteProduct(producto: Producto, event: Event): void {
     event.stopPropagation();
+    if (!this.canDeleteProducts()) {
+      return;
+    }
+
     const confirmed = confirm(
       `¿Eliminar "${producto.nombre}"?\n\nSe borrara del catalogo. Esta accion no se puede deshacer.`,
     );
@@ -348,6 +379,11 @@ export class ProductosPage implements OnInit {
   }
 
   protected saveProduct(): void {
+    if (!this.canManageProducts()) {
+      this.formMessage.set('No tienes permiso para modificar productos.');
+      return;
+    }
+
     if (this.productForm.invalid) {
       this.productForm.markAllAsTouched();
       this.formMessage.set('Revisa los campos obligatorios antes de guardar.');
@@ -515,6 +551,121 @@ export class ProductosPage implements OnInit {
           this.stockLoading.set(false);
         },
       });
+  }
+
+  protected exportProductosExcel(): void {
+    if (!this.canExportExcel()) {
+      return;
+    }
+
+    void this.runProductosExcelExport();
+  }
+
+  protected exportProductosPdf(): void {
+    if (!this.canExportPdf()) {
+      return;
+    }
+
+    const data = this.filteredRows();
+    const generatedAt = new Intl.DateTimeFormat('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date());
+
+    downloadPdfTable({
+      filename: `productos_cafedronel_${timestampForFilename()}.pdf`,
+      title: 'Catalogo de productos - Cafedronel',
+      subtitle: `Generado: ${generatedAt} | Registros: ${data.length} | Filtros: ${this.buildProductosFilterSummary()}`,
+      headers: ['SKU', 'Producto', 'Codigo', 'Categoria', 'Precio', 'Costo', 'Margen', 'Stock', 'Estado'],
+      rows: data.map((producto) => [
+        producto.sku || '-',
+        producto.nombre,
+        producto.codigoBarras || 'Sin codigo',
+        producto.categoria,
+        this.formatMoney(producto.precio),
+        this.formatMoney(producto.costo ?? 0),
+        `${this.formatPercent(this.margin(producto))}%`,
+        this.stockLabel(producto),
+        this.isActive(producto) ? 'Activo' : 'Inactivo',
+      ]),
+    });
+
+    this.actionMessage.set(`PDF descargado con ${data.length} producto(s) segun los filtros actuales.`);
+  }
+
+  private async runProductosExcelExport(): Promise<void> {
+    const data = this.filteredRows();
+
+    try {
+      await downloadStyledExcel({
+        filename: `productos_cafedronel_${timestampForFilename()}.xlsx`,
+        sheetName: 'Productos',
+        title: 'Cafedronel · Catalogo de productos',
+        meta: [
+          { label: 'Generado', value: formatExcelGeneratedAt() },
+          { label: 'Registros', value: String(data.length) },
+          { label: 'Filtros', value: this.buildProductosFilterSummary() },
+        ],
+        headers: ['SKU', 'Producto', 'Codigo', 'Categoria', 'Precio', 'Costo', 'Margen %', 'Stock', 'Estado'],
+        columnWidths: [12, 30, 16, 16, 12, 12, 10, 14, 12],
+        moneyColumnIndexes: [5, 6],
+        integerColumnIndexes: [7],
+        rows: data.map((producto) => [
+          producto.sku || '-',
+          producto.nombre,
+          producto.codigoBarras || 'Sin codigo',
+          producto.categoria,
+          Number(producto.precio),
+          Number(producto.costo ?? 0),
+          Number(this.margin(producto)),
+          this.stockLabel(producto),
+          this.isActive(producto) ? 'Activo' : 'Inactivo',
+        ]),
+        highlight: (row, columnIndex) => {
+          if (columnIndex === 8 && row[8] === 'Inactivo') {
+            return 'warning';
+          }
+          if (columnIndex === 7) {
+            const stock = String(row[7] ?? '');
+            if (stock.startsWith('0 uds')) return 'danger';
+            if (stock !== 'Sin insumos' && stock !== '...') {
+              const units = Number.parseInt(stock, 10);
+              if (!Number.isNaN(units) && units > 0 && units <= 5) return 'warning';
+            }
+          }
+          if (columnIndex === 6) {
+            const margen = Number(row[6] ?? 0);
+            if (margen < 35) return 'warning';
+          }
+          return null;
+        },
+      });
+
+      this.actionMessage.set(`Excel descargado con ${data.length} producto(s) segun los filtros actuales.`);
+    } catch {
+      this.actionMessage.set('No se pudo generar el archivo Excel.');
+    }
+  }
+
+  private buildProductosFilterSummary(): string {
+    const parts: string[] = [];
+    const term = this.searchTerm().trim();
+    if (term) {
+      parts.push(`Busqueda: "${term}"`);
+    }
+    if (this.selectedCategory() !== 'todos') {
+      parts.push(`Categoria: ${this.selectedCategory()}`);
+    }
+    if (this.selectedStatus() !== 'todos') {
+      parts.push(`Estado: ${this.selectedStatus()}`);
+    }
+    if (this.selectedAlert() !== 'todos') {
+      parts.push(`Alerta: ${this.selectedAlert()}`);
+    }
+    return parts.length ? parts.join(' | ') : 'Todos (sin filtros)';
   }
 
   private normalizeProducto(producto: Producto, fallback = true): Producto {

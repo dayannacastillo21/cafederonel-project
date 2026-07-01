@@ -136,6 +136,9 @@
     </label>
 
     <button type="button" class="ghost-button" (click)="clearAllFilters()">Limpiar</button>
+    @if (canExportExcel()) {
+      <button type="button" class="ghost-button" (click)="exportInventarioExcel()">Descargar Excel</button>
+    }
   </div>
 
   @if (actionMessage()) {

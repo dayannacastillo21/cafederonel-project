@@ -3,8 +3,11 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { PageHeader } from '../../../../shared/components/page-header/page-header';
+import { AuthService } from '../../../../core/auth/auth.service';
+import { canExportInventarioReports } from '../../../../core/auth/export-access.util';
 import { UnidadLabelPipe } from '../../../../core/pipes/unidad-label.pipe';
 import { coerceActivo } from '../../../../core/utils/boolean.util';
+import { downloadStyledExcel, formatExcelGeneratedAt, timestampForFilename } from '../../../../core/utils/excel-export.util';
 import { unidadLabel } from '../../../../core/utils/unidad.util';
 import { CafederonelApiService } from '../../../../services/cafederonel-api.service';
 import { CatalogCacheService } from '../../../../services/catalog-cache.service';
@@ -67,6 +70,11 @@ export class InventarioPage implements OnInit {
   protected readonly formMessage = signal('');
   protected readonly movementError = signal('');
   private readonly api = inject(CafederonelApiService);
+  private readonly auth = inject(AuthService);
+
+  protected readonly canExportExcel = computed(() =>
+    canExportInventarioReports(this.auth.session()?.role),
+  );
 
   protected readonly itemForm = this.fb.nonNullable.group({
     nombreInsumo: ['', [Validators.required, Validators.maxLength(150)]],
@@ -674,6 +682,118 @@ export class InventarioPage implements OnInit {
     }
 
     return response.error?.message || 'No se pudo cambiar el estado del insumo.';
+  }
+
+  protected exportInventarioExcel(): void {
+    if (!this.canExportExcel()) {
+      return;
+    }
+
+    void this.runInventarioExcelExport();
+  }
+
+  private async runInventarioExcelExport(): Promise<void> {
+    const data = this.filteredRows();
+
+    try {
+      await downloadStyledExcel({
+        filename: `inventario_cafedronel_${timestampForFilename()}.xlsx`,
+        sheetName: 'Inventario',
+        title: 'Cafedronel · Reporte de inventario',
+        meta: [
+          { label: 'Generado', value: formatExcelGeneratedAt() },
+          { label: 'Registros', value: String(data.length) },
+          { label: 'Filtros', value: this.buildInventarioFilterSummary() },
+        ],
+        headers: [
+          'Codigo',
+          'Insumo',
+          'Categoria',
+          'Proveedor',
+          'Almacen',
+          'Ubicacion',
+          'Lote',
+          'Cantidad',
+          'Unidad',
+          'Stock minimo',
+          'Estado stock',
+          'Vencimiento',
+          'Estado vencimiento',
+          'Costo unitario',
+          'Valor total',
+          'Estado',
+        ],
+        columnWidths: [12, 28, 16, 18, 14, 14, 12, 10, 10, 12, 14, 14, 18, 14, 14, 12],
+        moneyColumnIndexes: [14, 15],
+        integerColumnIndexes: [8, 10],
+        rows: data.map((item) => [
+          item.codigoInsumo || '',
+          item.nombreInsumo,
+          item.categoria,
+          item.proveedor,
+          item.almacen || '',
+          item.ubicacion || '',
+          item.lote || '',
+          item.cantidad,
+          item.unidad,
+          item.stockMinimo,
+          this.estadoStock(item),
+          this.formatVencimiento(item.fechaVencimiento),
+          this.vencimientoLabel(item),
+          Number(item.precioUnitario ?? 0),
+          Number(this.stockValue(item)),
+          this.isActive(item) ? 'Activo' : 'Inactivo',
+        ]),
+        highlight: (row, columnIndex) => {
+          if (columnIndex === 10) {
+            const estado = String(row[10] ?? '');
+            if (estado === 'Critico') return 'danger';
+            if (estado === 'Bajo') return 'warning';
+            if (estado === 'Ok') return 'ok';
+          }
+          if (columnIndex === 12) {
+            const vencimiento = String(row[12] ?? '');
+            if (vencimiento === 'Vencido') return 'danger';
+            if (vencimiento.startsWith('Por vencer') || vencimiento.startsWith('3 meses')) return 'warning';
+          }
+          if (columnIndex === 15 && row[15] === 'Inactivo') {
+            return 'warning';
+          }
+          return null;
+        },
+      });
+
+      this.actionMessage.set(`Excel descargado con ${data.length} registro(s) segun los filtros actuales.`);
+    } catch {
+      this.actionMessage.set('No se pudo generar el archivo Excel.');
+    }
+  }
+
+  private buildInventarioFilterSummary(): string {
+    const parts: string[] = [];
+    const term = this.searchTerm().trim();
+    if (term) {
+      parts.push(`Busqueda: "${term}"`);
+    }
+    if (this.selectedCategory() !== 'todos') {
+      parts.push(`Categoria: ${this.selectedCategory()}`);
+    }
+    if (this.selectedStockStatus() !== 'todos') {
+      parts.push(`Stock: ${this.selectedStockStatus()}`);
+    }
+    if (this.selectedExpiryFilter() !== 'todos') {
+      parts.push(`Vencimiento: ${this.selectedExpiryFilter()}`);
+    }
+    if (this.selectedStatus() !== 'todos') {
+      parts.push(`Estado: ${this.selectedStatus()}`);
+    }
+    if (this.selectedWarehouse() !== 'todos') {
+      const warehouse = this.almacenesCatalogo().find(
+        (item) => String(item.id) === this.selectedWarehouse(),
+      );
+      parts.push(`Almacen: ${warehouse?.nombre ?? this.selectedWarehouse()}`);
+    }
+    return parts.length ? parts.join(' | ') : 'Todos (sin filtros)';
   }
 
   private normalizeItem(item: InventarioItem, fallback = true): InventarioItem {

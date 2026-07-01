@@ -1,7 +1,7 @@
 <app-page-header
   eyebrow="Catalogo"
   title="Productos"
-  description="Modulo para listar, crear, editar y eliminar productos del inventario Cafedronel."
+  [description]="pageDescription()"
 />
 
 <section class="summary-strip">
@@ -43,9 +43,11 @@
       <h3>Listado de productos</h3>
       <span>{{ productCountLabel() }}</span>
     </div>
+    @if (canManageProducts()) {
     <div class="panel-actions">
       <button type="button" (click)="openEditor()">Nuevo producto</button>
     </div>
+    }
   </div>
 
   <div class="filter-bar">
@@ -91,6 +93,12 @@
     </label>
 
     <button type="button" class="ghost-button" (click)="clearAllFilters()">Limpiar</button>
+    @if (canExportExcel()) {
+      <button type="button" class="ghost-button" (click)="exportProductosExcel()">Descargar Excel</button>
+    }
+    @if (canExportPdf()) {
+      <button type="button" class="ghost-button" (click)="exportProductosPdf()">Descargar PDF</button>
+    }
   </div>
 
   @if (actionMessage()) {
@@ -161,6 +169,7 @@
                 <button type="button" class="ghost-button" (click)="$event.stopPropagation(); openDetail(row)">
                   Detalle
                 </button>
+                @if (canManageProducts()) {
                 <button type="button" class="ghost-button" (click)="$event.stopPropagation(); openEditor(row)">
                   Editar
                 </button>
@@ -172,6 +181,8 @@
                 >
                   {{ isActive(row) ? 'Desactivar' : 'Activar' }}
                 </button>
+                }
+                @if (canDeleteProducts()) {
                 <button
                   type="button"
                   class="ghost-button danger-button"
@@ -180,12 +191,13 @@
                 >
                   Eliminar
                 </button>
+                }
               </div>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="8">
+            <td colspan="9">
               <div class="table-message" [class.error]="errorMessage()">
                 {{ loading() ? 'Cargando productos desde la base...' : errorMessage() || 'No hay productos para los filtros actuales.' }}
               </div>
@@ -282,6 +294,7 @@
         </dl>
 
         <footer class="modal-actions">
+          @if (canManageProducts()) {
           <button type="button" class="ghost-button" (click)="openEditor(product)">Editar producto</button>
           <button
             type="button"
@@ -291,6 +304,8 @@
           >
             {{ isActive(product) ? 'Desactivar' : 'Activar' }}
           </button>
+          }
+          @if (canDeleteProducts()) {
           <button
             type="button"
             class="ghost-button danger-button"
@@ -299,6 +314,7 @@
           >
             Eliminar
           </button>
+          }
           <button type="button" (click)="closeModal()">Listo</button>
         </footer>
       </section>

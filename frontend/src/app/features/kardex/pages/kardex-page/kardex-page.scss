@@ -85,6 +85,15 @@ td small {
   font-size: 12px;
 }
 
+.panel-message.ok {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+  border-radius: 8px;
+  margin: 0 16px 12px;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
 @media (max-width: 1000px) {
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

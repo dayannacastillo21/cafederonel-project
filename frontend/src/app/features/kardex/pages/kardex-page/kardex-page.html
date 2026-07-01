@@ -57,8 +57,16 @@
           }
         </select>
       </label>
+      <button type="button" class="ghost-button" (click)="clearFilters()">Limpiar</button>
+      @if (canExportExcel()) {
+        <button type="button" class="ghost-button" (click)="exportKardexExcel()">Descargar Excel</button>
+      }
     </div>
   </div>
+
+  @if (actionMessage()) {
+    <div class="table-message ok panel-message">{{ actionMessage() }}</div>
+  }
 
   @if (errorMessage()) {
     <div class="table-message error">{{ errorMessage() }}</div>
