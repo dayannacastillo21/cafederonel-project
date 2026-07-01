@@ -113,11 +113,11 @@ public class Inventario {
         if (categoria == null || categoria.isBlank()) {
             categoria = "General";
         }
-        if (ubicacion == null || ubicacion.isBlank()) {
-            ubicacion = almacenEntidad != null ? almacenEntidad.getNombre() : null;
-        }
         if (almacenId == null) {
             almacenId = 1;
+        }
+        if (ubicacion == null || ubicacion.isBlank()) {
+            ubicacion = almacenEntidad != null ? almacenEntidad.getNombre() : "Almacen principal";
         }
         if (activo == null) {
             activo = true;
