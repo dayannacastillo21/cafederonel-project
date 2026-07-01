@@ -27,7 +27,10 @@ export class PedidosPage {
   private readonly api = inject(CafederonelApiService);
   private readonly auth = inject(AuthService);
 
-  protected readonly columns = ['Pedido', 'Mesa / servicio', 'Productos', 'Estado', 'Total', 'Fecha', 'Acciones'];
+  protected readonly columns = computed(() => {
+    const base = ['Pedido', 'Mesa / servicio', 'Productos', 'Estado', 'Total', 'Fecha'];
+    return this.canEditOrders() ? [...base, 'Acciones'] : base;
+  });
   protected readonly mesas = Array.from({ length: 10 }, (_, index) => index + 1);
   protected readonly rows = signal<Pedido[]>([]);
   protected readonly loading = signal(true);
@@ -51,6 +54,15 @@ export class PedidosPage {
   protected readonly adminUnlockError = signal('');
 
   protected readonly isAdmin = computed(() => this.auth.session()?.role === 'ADMIN');
+  protected readonly canEditOrders = computed(() => {
+    const role = this.auth.session()?.role;
+    return role === 'ADMIN' || role === 'CAJERO';
+  });
+  protected readonly pageDescription = computed(() =>
+    this.canEditOrders()
+      ? 'Correcciones rapidas de ventas del POS: mesa, productos o anulacion completa.'
+      : 'Consulta contable de pedidos, estados y montos registrados.',
+  );
   protected readonly destinoBadge = computed(() => this.destinoMeta(this.editCliente()));
   protected readonly editTotal = computed(() =>
     this.editLines().reduce((sum, line) => sum + line.precio * line.cantidad, 0),
@@ -117,10 +129,24 @@ export class PedidosPage {
 
   protected puedeEditar(pedido: Pedido): boolean {
     this.now();
-    if (pedido.estado === 'cancelado') {
+    if (!this.canEditOrders()) {
+      return false;
+    }
+    if (this.estaCerrado(pedido)) {
       return false;
     }
     return this.segundosRestantes(pedido) > 0;
+  }
+
+  protected estaCerrado(pedido: Pedido): boolean {
+    return pedido.estado === 'cancelado' || pedido.estado === 'completado';
+  }
+
+  protected mostrarAcciones(pedido: Pedido): boolean {
+    if (!this.canEditOrders() || this.estaCerrado(pedido)) {
+      return false;
+    }
+    return this.puedeEditar(pedido) || this.puedeCorregirAdmin(pedido);
   }
 
   protected segundosRestantes(pedido: Pedido): number {
@@ -141,11 +167,11 @@ export class PedidosPage {
   }
 
   protected puedeCorregirAdmin(pedido: Pedido): boolean {
-    return this.isAdmin() && this.adminUnlocked() && pedido.estado !== 'cancelado';
+    return this.isAdmin() && this.adminUnlocked() && !this.estaCerrado(pedido);
   }
 
   protected puedeAnularAdmin(pedido: Pedido): boolean {
-    return this.isAdmin() && this.adminUnlocked() && pedido.estado !== 'cancelado';
+    return this.isAdmin() && this.adminUnlocked() && !this.estaCerrado(pedido);
   }
 
   protected onAdminPinInput(event: Event): void {
@@ -185,6 +211,10 @@ export class PedidosPage {
   }
 
   protected openEdit(pedido: Pedido, asAdmin = false): void {
+    if (!this.canEditOrders()) {
+      return;
+    }
+
     if (asAdmin) {
       if (!this.puedeCorregirAdmin(pedido)) {
         return;
@@ -371,6 +401,10 @@ export class PedidosPage {
   }
 
   protected cancelarPedido(pedido: Pedido, asAdmin = false): void {
+    if (!this.canEditOrders()) {
+      return;
+    }
+
     if (asAdmin) {
       if (!this.puedeAnularAdmin(pedido) || this.saving()) {
         return;

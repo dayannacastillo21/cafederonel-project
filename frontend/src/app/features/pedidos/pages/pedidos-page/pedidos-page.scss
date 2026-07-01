@@ -191,6 +191,11 @@
   font-weight: 800;
 }
 
+.muted-action {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;

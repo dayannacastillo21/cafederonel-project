@@ -1,9 +1,10 @@
 <app-page-header
   eyebrow="Operaciones"
   title="Pedidos"
-  description="Correcciones rapidas de ventas del POS: mesa, productos o anulacion completa."
+  [description]="pageDescription()"
 />
 
+@if (canEditOrders()) {
 <section class="help-panel">
   <strong>¿Que puedes corregir en 2 minutos?</strong>
   <ul>
@@ -13,6 +14,7 @@
   </ul>
   <small>Pasados 2 minutos el pedido queda bloqueado porque la cocina ya pudo empezar a prepararlo.</small>
 </section>
+}
 
 @if (isAdmin()) {
   <section class="admin-panel" [class.unlocked]="adminUnlocked()">
@@ -61,14 +63,20 @@
   <div class="panel-header">
     <div>
       <h3>Pedidos recientes</h3>
-      <span>Cada venta del POS aparece aqui. Usa <strong>Corregir</strong> mientras el contador este activo.</span>
+      <span>
+        @if (canEditOrders()) {
+          Cada venta del POS aparece aqui. Usa <strong>Corregir</strong> mientras el contador este activo.
+        } @else {
+          Consulta de pedidos para control financiero.
+        }
+      </span>
     </div>
   </div>
   <div class="table-shell">
     <table>
       <thead>
         <tr>
-          @for (column of columns; track column) {
+          @for (column of columns(); track column) {
             <th>{{ column }}</th>
           }
         </tr>
@@ -92,19 +100,22 @@
                 </span>
                 @if (puedeEditar(row)) {
                   <span class="edit-window-pill">Quedan {{ countdownLabel(row) }}</span>
-                } @else if (row.estado !== 'cancelado') {
+                } @else if (canEditOrders() && !estaCerrado(row)) {
                   <span class="locked-pill">Ya no editable</span>
                 }
               </div>
             </td>
             <td class="amount">{{ formatMoney(row.total) }}</td>
             <td>{{ formatDate(row.fechaCreacion) }}</td>
+            @if (canEditOrders()) {
             <td>
+              @if (mostrarAcciones(row)) {
               <div class="row-actions">
+                @if (puedeEditar(row)) {
                 <button
                   type="button"
                   class="ghost-button compact primary-action"
-                  [disabled]="!puedeEditar(row) || saving()"
+                  [disabled]="saving()"
                   (click)="openEdit(row)"
                 >
                   Corregir
@@ -112,11 +123,12 @@
                 <button
                   type="button"
                   class="ghost-button compact danger-button"
-                  [disabled]="!puedeEditar(row) || saving()"
+                  [disabled]="saving()"
                   (click)="cancelarPedido(row)"
                 >
                   Anular
                 </button>
+                }
                 @if (puedeCorregirAdmin(row) && !puedeEditar(row)) {
                   <button
                     type="button"
@@ -136,11 +148,17 @@
                   </button>
                 }
               </div>
+              } @else if (!estaCerrado(row)) {
+                <span class="muted-action">Sin acciones</span>
+              } @else {
+                <span class="muted-action">—</span>
+              }
             </td>
+            }
           </tr>
         } @empty {
           <tr>
-            <td colspan="7">
+            <td [attr.colspan]="columns().length">
               <div class="table-message">
                 {{ loading() ? 'Cargando pedidos desde la base...' : errorMessage() || 'No hay pedidos registrados.' }}
               </div>
