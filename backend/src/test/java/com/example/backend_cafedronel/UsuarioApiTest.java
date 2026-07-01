@@ -36,6 +36,7 @@ class UsuarioApiTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void registrarUsuario_noExponePassword() throws Exception {
         String body = """
                 {
@@ -55,6 +56,7 @@ class UsuarioApiTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void registrarUsuario_invalido_devuelve400() throws Exception {
         String body = """
                 {
@@ -70,6 +72,22 @@ class UsuarioApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.fieldErrors").exists());
+    }
+
+    @Test
+    void registrarUsuarioSinToken_devuelve401() throws Exception {
+        String body = """
+                {
+                  "nombre": "Nuevo Usuario",
+                  "email": "nuevo.usuario@cafedronel.com",
+                  "password": "abcd1234"
+                }
+                """;
+
+        mockMvc.perform(post("/api/usuarios")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -90,6 +108,7 @@ class UsuarioApiTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void registrarUsuario_emailDuplicado_devuelve409() throws Exception {
         Usuario existente = new Usuario();
         existente.setNombre("Existente");

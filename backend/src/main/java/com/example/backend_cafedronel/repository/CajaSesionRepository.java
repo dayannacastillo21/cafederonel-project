@@ -10,4 +10,6 @@ public interface CajaSesionRepository extends JpaRepository<CajaSesion, Integer>
     Optional<CajaSesion> findFirstByUsuario_IdAndEstadoOrderByFechaAperturaDesc(Integer usuarioId, String estado);
 
     boolean existsByUsuario_IdAndEstado(Integer usuarioId, String estado);
+
+    boolean existsByUsuario_Id(Integer usuarioId);
 }

@@ -32,7 +32,8 @@ class UsuarioServiceImplTest {
 
     @Test
     void registrarUsuario_emailDuplicado_lanzaExcepcion() {
-        UsuarioServiceImpl servicio = new UsuarioServiceImpl(usuarioRepository, passwordEncoder, jwtService);
+        UsuarioServiceImpl servicio = new UsuarioServiceImpl(
+                usuarioRepository, null, null, passwordEncoder, jwtService);
 
         UsuarioRegistroRequest primero = registro("Uno", "mismo@correo.com", "abcd");
         UsuarioRegistroRequest duplicado = registro("Dos", "mismo@correo.com", "efgh");
@@ -50,7 +51,7 @@ class UsuarioServiceImplTest {
         request.setNombre(nombre);
         request.setEmail(email);
         request.setPassword(password);
-        request.setRol("usuario");
+        request.setRol("CAJERO");
         return request;
     }
 }
