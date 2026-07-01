@@ -35,16 +35,55 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/favicon.ico", "/api/estado", "/api/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/usuarios").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/productos/**").hasAnyRole("ADMIN", "CAJERO", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/productos/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/productos/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/productos/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(HttpMethod.DELETE, "/api/productos/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/inventario/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/inventario/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/inventario/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/inventario/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(HttpMethod.DELETE, "/api/inventario/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/proveedores/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/proveedores/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/proveedores/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/proveedores/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers(HttpMethod.DELETE, "/api/proveedores/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/pedidos/**").hasAnyRole("ADMIN", "CAJERO", "CONTADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/pedidos/**").hasAnyRole("ADMIN", "CAJERO")
+                        .requestMatchers(HttpMethod.PUT, "/api/pedidos/**").hasAnyRole("ADMIN", "CAJERO")
+                        .requestMatchers(HttpMethod.PATCH, "/api/pedidos/**").hasAnyRole("ADMIN", "CAJERO")
+                        .requestMatchers(HttpMethod.DELETE, "/api/pedidos/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/ventas/**").hasAnyRole("ADMIN", "CAJERO", "CONTADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/ventas/**").hasAnyRole("ADMIN", "CAJERO")
+                        .requestMatchers(HttpMethod.PUT, "/api/ventas/**").hasAnyRole("ADMIN", "CAJERO")
+                        .requestMatchers(HttpMethod.DELETE, "/api/ventas/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/pos/**").hasAnyRole("ADMIN", "CAJERO")
                         .requestMatchers("/api/caja/**").hasAnyRole("ADMIN", "CAJERO")
                         .requestMatchers("/api/salon/**").hasAnyRole("ADMIN", "CAJERO")
-                        .requestMatchers(HttpMethod.DELETE,
-                                "/api/productos/**",
-                                "/api/proveedores/**",
-                                "/api/inventario/**",
-                                "/api/pedidos/**",
-                                "/api/ventas/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/catalogo/categorias-producto")
+                        .hasAnyRole("ADMIN", "CAJERO", "INVENTARIO")
+                        .requestMatchers(HttpMethod.GET, "/api/catalogo/**").hasAnyRole("ADMIN", "INVENTARIO")
+                        .requestMatchers("/api/reportes/**").hasAnyRole("ADMIN", "CONTADOR")
                         .requestMatchers("/api/admin/**", "/api/usuarios/**").hasRole("ADMIN")
                         .requestMatchers("/api/user/**").hasAnyRole("ADMIN", "CAJERO", "INVENTARIO", "CONTADOR")
                         .anyRequest().authenticated())

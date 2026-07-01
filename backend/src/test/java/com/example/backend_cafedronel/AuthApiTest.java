@@ -1,5 +1,7 @@
 package com.example.backend_cafedronel;
 
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -18,15 +20,21 @@ class AuthApiTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @Test
-    void loginValido_devuelveTokenYDatosUsuario() throws Exception {
-        String body = "{\"email\":\"admin@cafedronel.com\",\"password\":\"password\"}";
+    @ParameterizedTest
+    @CsvSource({
+            "admin@cafedronel.com,ADMIN",
+            "caja@cafedronel.com,CAJERO",
+            "inventario@cafedronel.com,INVENTARIO",
+            "contador@cafedronel.com,CONTADOR"
+    })
+    void loginValido_devuelveTokenYDatosUsuario(String email, String role) throws Exception {
+        String body = "{\"email\":\"" + email + "\",\"password\":\"password\"}";
         mockMvc.perform(post("/api/auth/sesiones")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.email").value("admin@cafedronel.com"))
-                .andExpect(jsonPath("$.role").value("ADMIN"))
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.role").value(role))
                 .andExpect(jsonPath("$.token").exists());
     }
 
