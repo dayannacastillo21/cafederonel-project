@@ -68,6 +68,10 @@ public class Venta {
     public void setId(Integer id) { this.id = id; }
     public Integer getUsuarioId() { return usuario != null ? usuario.getId() : null; }
 
+    public String getUsuarioNombre() {
+        return usuario != null ? usuario.getNombre() : null;
+    }
+
     public void setUsuarioId(Integer usuarioId) {
         if (usuarioId == null) {
             this.usuario = null;

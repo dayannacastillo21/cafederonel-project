@@ -36,7 +36,7 @@ public class VentaServiceImpl implements VentaService {
     @Override
     @Transactional(readOnly = true)
     public List<Venta> listar() {
-        return ventaRepository.findAll(Sort.by(Sort.Direction.ASC, "id"));
+        return ventaRepository.findAll(Sort.by(Sort.Direction.DESC, "fechaVenta"));
     }
 
     @Override

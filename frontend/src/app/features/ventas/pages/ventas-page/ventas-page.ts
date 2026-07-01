@@ -1,18 +1,20 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { forkJoin } from 'rxjs';
 
+import { AuthService } from '../../../../core/auth/auth.service';
 import { PageHeader } from '../../../../shared/components/page-header/page-header';
 import { CafederonelApiService } from '../../../../services/cafederonel-api.service';
-import { Usuario } from '../../../../models/usuario.model';
 import { Venta } from '../../../../models/venta.model';
 
 type VentaRow = {
   id: number;
-  usuario: string;
+  cajero: string;
   producto: string;
   cantidad: number;
   total: number;
+  estado: Venta['estado'];
+  metodoPago: string;
+  fechaVenta: string;
 };
 
 @Component({
@@ -23,21 +25,30 @@ type VentaRow = {
 })
 export class VentasPage {
   private readonly api = inject(CafederonelApiService);
+  private readonly auth = inject(AuthService);
 
-  protected readonly columns = ['Usuario', 'Producto', 'Cantidad', 'Total'];
+  protected readonly columns = ['Venta', 'Cajero', 'Producto', 'Metodo', 'Estado', 'Cantidad', 'Total', 'Fecha'];
   protected readonly rows = signal<VentaRow[]>([]);
   protected readonly loading = signal(true);
   protected readonly errorMessage = signal('');
+  protected readonly headerEyebrow = computed(() => {
+    const role = this.auth.session()?.role;
+    return role === 'CONTADOR' ? 'Contabilidad' : 'Consulta';
+  });
+  protected readonly totalCobrado = computed(() =>
+    this.rows()
+      .filter((row) => row.estado === 'completado')
+      .reduce((sum, row) => sum + row.total, 0),
+  );
+  protected readonly completedCount = computed(() => this.rows().filter((row) => row.estado === 'completado').length);
 
   constructor() {
-    forkJoin({
-      ventas: this.api.ventas(),
-      usuarios: this.api.usuarios(),
-    })
+    this.api
+      .ventas()
       .pipe(takeUntilDestroyed())
       .subscribe({
-        next: ({ ventas, usuarios }) => {
-          this.rows.set(this.toRows(ventas, usuarios));
+        next: (ventas) => {
+          this.rows.set(this.toRows(ventas));
           this.loading.set(false);
         },
         error: () => {
@@ -55,15 +66,43 @@ export class VentasPage {
     }).format(value);
   }
 
-  private toRows(ventas: Venta[], usuarios: Usuario[]): VentaRow[] {
-    const usuariosPorId = new Map(usuarios.map((usuario) => [usuario.id, usuario.nombre]));
+  protected formatDate(value?: string): string {
+    if (!value) {
+      return 'Sin fecha';
+    }
+    const parsed = new Date(value.replace(' ', 'T'));
+    return Number.isNaN(parsed.getTime())
+      ? value
+      : new Intl.DateTimeFormat('es-PE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(parsed);
+  }
 
+  protected paymentLabel(value?: string): string {
+    if (!value) {
+      return 'Sin metodo';
+    }
+    return value
+      .split(/[\s_-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  private toRows(ventas: Venta[]): VentaRow[] {
     return ventas.map((venta) => ({
       id: venta.id,
-      usuario: usuariosPorId.get(venta.usuarioId) ?? `Usuario ${venta.usuarioId}`,
+      cajero: venta.usuarioNombre?.trim() || `Usuario ${venta.usuarioId}`,
       producto: venta.producto.nombre,
       cantidad: venta.cantidad,
       total: venta.total,
+      estado: venta.estado,
+      metodoPago: venta.metodoPago ?? 'sin metodo',
+      fechaVenta: venta.fechaVenta,
     }));
   }
 }

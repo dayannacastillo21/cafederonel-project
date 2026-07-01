@@ -1,18 +1,27 @@
 <app-page-header
-  eyebrow="Caja"
+  [eyebrow]="headerEyebrow()"
   title="Ventas"
-  description="Registro de ventas y consulta por usuario o estado."
+  description="Cobros registrados en el POS desde la base de datos."
 />
+
+<section class="summary-strip">
+  <article class="summary-card">
+    <span>Total cobrado</span>
+    <strong>{{ formatMoney(totalCobrado()) }}</strong>
+    <small>{{ completedCount() }} ventas completadas</small>
+  </article>
+  <article class="summary-card info">
+    <span>Registros</span>
+    <strong>{{ rows().length }}</strong>
+    <small>Movimientos de venta</small>
+  </article>
+</section>
 
 <section class="panel">
   <div class="panel-header">
     <div>
       <h3>Ventas registradas</h3>
-      <span>Movimiento del dia</span>
-    </div>
-    <div class="panel-actions">
-      <button type="button" class="ghost-button">Exportar</button>
-      <button type="button">Nueva venta</button>
+      <span>Historial real por cajero, producto y metodo de pago</span>
     </div>
   </div>
   <div class="table-shell">
@@ -27,14 +36,27 @@
       <tbody>
         @for (row of rows(); track row.id) {
           <tr>
-            <td>{{ row.usuario }}</td>
+            <td><strong>#{{ row.id }}</strong></td>
+            <td>{{ row.cajero }}</td>
             <td><strong>{{ row.producto }}</strong></td>
+            <td>{{ paymentLabel(row.metodoPago) }}</td>
+            <td>
+              <span
+                class="status-pill"
+                [class.status-ok]="row.estado === 'completado'"
+                [class.status-warning]="row.estado === 'pendiente'"
+                [class.status-danger]="row.estado === 'cancelado' || row.estado === 'reembolsado'"
+              >
+                {{ row.estado }}
+              </span>
+            </td>
             <td>{{ row.cantidad }}</td>
             <td class="amount">{{ formatMoney(row.total) }}</td>
+            <td>{{ formatDate(row.fechaVenta) }}</td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="4">
+            <td colspan="8">
               <div class="table-message">
                 {{ loading() ? 'Cargando ventas desde la base...' : errorMessage() || 'No hay ventas registradas.' }}
               </div>
