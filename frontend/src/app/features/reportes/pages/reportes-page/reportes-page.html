@@ -1,0 +1,177 @@
+<app-page-header
+  eyebrow="Contabilidad"
+  title="Reportes financieros"
+  description="Resumen de ventas, pedidos completados, cajas y cobros registrados."
+/>
+
+@if (loading()) {
+  <div class="table-message">Cargando resumen financiero...</div>
+}
+
+@if (errorMessage()) {
+  <div class="table-message error">{{ errorMessage() }}</div>
+}
+
+@if (resumen(); as data) {
+  <section class="summary-strip report-summary">
+    <article class="summary-card">
+      <span>Total cobrado</span>
+      <strong>{{ formatMoney(data.totalCobrado) }}</strong>
+      <small>{{ data.ventasCompletadas }} ventas completadas</small>
+    </article>
+    <article class="summary-card info">
+      <span>Ticket promedio</span>
+      <strong>{{ formatMoney(data.ticketPromedio) }}</strong>
+      <small>{{ data.ventasRegistradas }} ventas registradas</small>
+    </article>
+    <article class="summary-card warning">
+      <span>Pedidos pendientes</span>
+      <strong>{{ data.pedidosPendientes }}</strong>
+      <small>{{ data.pedidosRegistrados }} pedidos totales</small>
+    </article>
+    <article class="summary-card">
+      <span>Efectivo en caja</span>
+      <strong>{{ formatMoney(data.totalEfectivoCaja) }}</strong>
+      <small>{{ data.cajasAbiertas }} cajas abiertas</small>
+    </article>
+  </section>
+
+  <section class="report-grid">
+    <article class="panel">
+      <div class="panel-header compact">
+        <div>
+          <h3>Cobros por metodo</h3>
+          <span>Total confirmado: {{ formatMoney(data.totalCobrado) }}</span>
+        </div>
+      </div>
+      <div class="method-list">
+        @for (method of data.cobrosPorMetodo; track method.metodoPago) {
+          <div class="method-row">
+            <div>
+              <strong>{{ paymentLabel(method.metodoPago) }}</strong>
+              <span>{{ method.cantidad }} operacion(es)</span>
+            </div>
+            <b>{{ formatMoney(method.total) }}</b>
+          </div>
+        } @empty {
+          <div class="table-message">Sin cobros completados.</div>
+        }
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-header compact">
+        <div>
+          <h3>Estado de pedidos</h3>
+          <span>Base para conciliacion operativa</span>
+        </div>
+      </div>
+      <div class="status-grid">
+        <div>
+          <span>Pendientes</span>
+          <strong>{{ data.pedidosPendientes }}</strong>
+        </div>
+        <div>
+          <span>Completados</span>
+          <strong>{{ data.pedidosCompletados }}</strong>
+        </div>
+        <div>
+          <span>Cancelados</span>
+          <strong>{{ data.pedidosCancelados }}</strong>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h3>Sesiones de caja</h3>
+        <span>{{ data.cajasAbiertas }} abiertas / {{ data.cajasCerradas }} cerradas</span>
+      </div>
+    </div>
+    <div class="table-shell">
+      <table>
+        <thead>
+          <tr>
+            <th>Caja</th>
+            <th>Responsable</th>
+            <th>Estado</th>
+            <th>Total ventas</th>
+            <th>Efectivo</th>
+            <th>Apertura</th>
+            <th>Cierre</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (sesion of data.sesionesCaja; track sesion.id) {
+            <tr>
+              <td><strong>#{{ sesion.id }}</strong></td>
+              <td>{{ sesion.usuarioNombre || ('Usuario ' + sesion.usuarioId) }}</td>
+              <td>
+                <span class="status-pill" [class.status-ok]="sesion.estado === 'abierta'" [class.status-info]="sesion.estado !== 'abierta'">
+                  {{ sesion.estado }}
+                </span>
+              </td>
+              <td class="amount">{{ formatMoney(sesion.totalVentas) }}</td>
+              <td class="amount">{{ formatMoney(sesion.totalEfectivo) }}</td>
+              <td>{{ formatDate(sesion.fechaApertura) }}</td>
+              <td>{{ formatDate(sesion.fechaCierre) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7">
+                <div class="table-message">Sin sesiones de caja registradas.</div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div>
+        <h3>Ultimos cobros</h3>
+        <span>Ventas recientes por producto y metodo de pago</span>
+      </div>
+    </div>
+    <div class="table-shell">
+      <table>
+        <thead>
+          <tr>
+            <th>Venta</th>
+            <th>Cajero</th>
+            <th>Producto</th>
+            <th>Metodo</th>
+            <th>Estado</th>
+            <th>Cantidad</th>
+            <th>Total</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (cobro of data.ultimosCobros; track cobro.ventaId) {
+            <tr>
+              <td><strong>#{{ cobro.ventaId }}</strong></td>
+              <td>{{ cobro.usuarioNombre || ('Usuario ' + cobro.usuarioId) }}</td>
+              <td>{{ cobro.producto }}</td>
+              <td>{{ paymentLabel(cobro.metodoPago) }}</td>
+              <td><span class="status-pill status-info">{{ cobro.estado }}</span></td>
+              <td>{{ cobro.cantidad }}</td>
+              <td class="amount">{{ formatMoney(cobro.total) }}</td>
+              <td>{{ formatDate(cobro.fechaVenta) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="8">
+                <div class="table-message">Sin cobros registrados.</div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
