@@ -24,8 +24,4 @@ CREATE TABLE caja_sesiones (
 CREATE INDEX idx_caja_sesiones_usuario ON caja_sesiones (usuario_id);
 CREATE INDEX idx_caja_sesiones_estado ON caja_sesiones (estado);
 
-CREATE UNIQUE INDEX ux_caja_usuario_abierta
-    ON caja_sesiones (usuario_id)
-    WHERE estado = 'abierta';
-
 COMMENT ON TABLE caja_sesiones IS 'Turnos de caja: apertura con fondo inicial y registro de ventas del turno';
